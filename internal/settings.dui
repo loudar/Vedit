@@ -1,0 +1,14 @@
+type=title;x=margin;y=margin;w=flex;h=25;color=ui;hovercolor=ui;text=Settings;name=title
+type=text;x=prev;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=License status:;name=licensestatus;action=check.license
+type=text;x=prevr;y=prev;w=flex;h=25;color=green;hovercolor=ui2;text=Get license;name=getlicense;action=web;url=https://gum.co/datanet
+/type=radiobutton;x=margin;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=Radio button 1;name=radio1;group=1
+/type=radiobutton;x=prev;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=Radio button 2;name=radio2;group=1
+type=dropdown;x=margin;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=Color scheme:;name=colorscheme;options=bright/dark/targon/teal/urban/sci/discord/beach/monochrome
+type=checkbox;x=prev;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=Partial search;name=partialsearch
+type=slider;x=prev;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=Window size;value=0.5;name=windowsize
+type=gradient;x=margin;y=nextt;w=full;h=25;name=1;style=bf;color=ui/ui2/bg2/active
+type=text;x=margin;y=b;w=flex;h=25;color=ui;hovercolor=ui;name=time;style=bf;angle=0;text=Time:;
+type=button;x=right;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=quit;style=b;angle=0;text=Quit;action=quit
+type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=back;style=b;angle=0;text=Back;action=view.main
+type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=save;style=b;angle=0;text=Save;action=saveconfig
+type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=reset;style=b;angle=0;text=Reset;action=resetconfig

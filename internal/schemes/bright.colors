@@ -1,0 +1,10 @@
+name=t;r=0;g=0;b=0;a=0
+name=ui;r=20;g=20;b=20;a=255
+name=ui2;r=150;g=150;b=150;a=255
+name=bg1;r=230;g=230;b=230;a=255
+name=bg2;r=220;g=220;b=220;a=255
+name=selected;r=210;g=210;b=210;a=255
+name=seltext;r=20;g=20;b=20;a=255
+name=green;r=33;g=166;b=0;a=255
+name=red;r=255;g=0;b=55;a=255
+name=active;r=0;g=144;b=255;a=255
