@@ -1,0 +1,501 @@
+SUB doThis (arguments AS STRING, recursivecall AS _BYTE) 'program-specific actions
+    IF global.actionlock AND NOT recursivecall THEN
+        EXIT SUB
+    ELSE
+        IF mouse.left THEN global.actionlock = -1
+    END IF
+    DIM AS STRING license, url, success
+    action$ = getArgument$(arguments, "action")
+    license = getArgument$(arguments, "license")
+    transmittedtext = getArgument$(arguments, "transmit")
+    url = getArgument$(arguments, "url")
+    SELECT CASE action$
+        CASE "add.license"
+            IF set(license) THEN
+                success = add.License$("license=" + license)
+                doThis "action=view.main;transmit=" + success, -1
+            ELSE
+                doThis "action=view.add.license", -1
+            END IF
+        CASE "web"
+            openBrowser url
+        CASE "check.license"
+            loadConfig
+        CASE "saveconfig"
+            saveConfig
+            loadConfig
+        CASE "resetconfig"
+            resetConfig
+            loadConfig
+        CASE "quit"
+            SYSTEM
+    END SELECT
+    SELECT CASE MID$(action$, 1, INSTR(action$, ".") - 1)
+        CASE "view"
+            currentview = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
+    END SELECT
+END SUB
+
+SUB resetAllValues
+    'internal settings
+    internal.setting.trimstrings = -1
+    internal.setting.fps = 60
+    internal.setting.doubleclickspeed = 0.2
+
+    'data structure
+    global.intpath = "internal"
+    global.sliderwidth = 200
+    proofPath global.intpath
+    loadConfig
+    mouse.movementTimer = 90 ' amount of rounds until UI fades out
+    linemode = 1 ' type of line math
+    pointsize = 4 ' how big the control points are
+    global.windowsize = 0.5
+END SUB
+
+SUB elementKeyHandling (this AS element, elementindex AS INTEGER, bufferchar AS STRING, invoke AS invoke)
+    IF (this.selected OR active(elementindex)) AND invoke.delete AND shiftDown THEN 'delete the entire buffer with shift+delete
+        this.buffer = ""
+        this.cursor = 0
+        resetSelection this
+    END IF
+    IF this.cursor > LEN(this.buffer) THEN this.cursor = LEN(this.buffer)
+    IF this.sel_start > LEN(this.buffer) THEN this.sel_start = LEN(this.buffer)
+    IF this.sel_end > LEN(this.buffer) THEN this.sel_end = LEN(this.buffer)
+
+    IF active(elementindex) = 0 THEN EXIT SUB
+
+    'BELOW CODE WILL ONLY RUN IF ELEMENT IS ACTIVE!
+
+    IF bufferchar <> "" THEN
+        IF ctrlDown THEN 'ctrl
+            SELECT CASE LCASE$(bufferchar)
+                CASE "a"
+                    uiCall "select all", this, elementindex
+                CASE "v" 'paste something into an input field
+                    uiCall "paste", this, elementindex
+                CASE "c" 'copy something from an input field
+                    uiCall "copy", this, elementindex
+                CASE "u" 'uppercase
+                    uiCall "uppercase", this, elementindex
+                CASE "l" 'lowercase
+                    uiCall "lowercase", this, elementindex
+                CASE "z" 'revert last change
+                    uiCall "revert", this, elementindex
+                CASE "f" 'replace buffer with "nodetarget="
+                    uiCall "search", this, elementindex
+                CASE "n" 'replace buffer with "action=add.node;nodetarget="
+                    uiCall "add node", this, elementindex
+                CASE "0"
+                    IF this.name = "commandline" THEN addToHistory this, elementindex: this.buffer = this.buffer + "action=": this.cursor = LEN(this.buffer)
+                CASE "1" 'attach "nodeorigin=" to buffer
+                    IF this.name = "commandline" THEN addToHistory this, elementindex: this.buffer = this.buffer + "nodeorigin=": this.cursor = LEN(this.buffer)
+                CASE "2" 'attach "nodeorigin=" to buffer
+                    IF this.name = "commandline" THEN addToHistory this, elementindex: this.buffer = this.buffer + "linkname=": this.cursor = LEN(this.buffer)
+                CASE "3" 'attach "nodeorigin=" to buffer
+                    IF this.name = "commandline" THEN addToHistory this, elementindex: this.buffer = this.buffer + "nodetarget=": this.cursor = LEN(this.buffer)
+                CASE "r" 'should reset the offset position, but doesn't for some reason
+                    this.offsetx = 0: this.offsety = 0
+                CASE ELSE
+                    insertBufferChar this, elementindex, bufferchar
+            END SELECT
+        ELSE
+            IF longSelection(this) THEN
+                sel_start = min(this.sel_start, this.sel_end)
+                sel_end = max(this.sel_start, this.sel_end)
+                this.buffer = deletePart$(this.buffer, sel_start, sel_end)
+                this.cursor = sel_start - 1
+            END IF
+            insertBufferChar this, elementindex, bufferchar
+        END IF
+    ELSE
+        IF ctrlDown AND shiftDown THEN
+            IF invoke.left THEN
+                this.sel_start = this.cursor
+                IF this.sel_end = 0 AND NOT longSelection(this) THEN this.sel_end = this.sel_start
+                this.sel_end = _INSTRREV(" " + MID$(this.buffer, 1, this.sel_end - 2), " ")
+            END IF
+            IF invoke.right THEN
+                this.sel_start = this.cursor + 1
+                IF this.sel_end = 0 THEN this.sel_end = this.sel_start
+                this.sel_end = INSTR(MID$(this.buffer, this.sel_end + 2, LEN(this.buffer)) + " ", " ") + this.sel_end
+            END IF
+        ELSEIF ctrlDown AND NOT shiftDown THEN
+            IF invoke.left THEN this.cursor = _INSTRREV(" " + MID$(this.buffer, 1, this.cursor - 1), " ") - 1
+            IF invoke.right THEN this.cursor = INSTR(MID$(this.buffer, this.cursor + 1, LEN(this.buffer)) + " ", " ") + this.cursor
+        ELSEIF shiftDown AND NOT ctrlDown THEN
+            IF invoke.left THEN
+                IF this.sel_start THEN
+                    IF this.sel_end > 0 THEN this.sel_end = this.sel_end - 1
+                ELSE
+                    this.sel_start = this.cursor
+                    this.sel_end = this.sel_start
+                END IF
+            END IF
+            IF invoke.right THEN
+                IF this.sel_start THEN
+                    IF this.sel_end < LEN(this.buffer) THEN this.sel_end = this.sel_end + 1
+                ELSE
+                    this.sel_start = this.cursor
+                    this.sel_end = this.sel_start
+                END IF
+            END IF
+        ELSE
+            IF invoke.left THEN
+                IF longSelection(this) THEN
+                    resetSelection this
+                ELSE
+                    IF this.cursor > 0 THEN this.cursor = this.cursor - 1
+                END IF
+            END IF
+            IF invoke.right THEN
+                IF longSelection(this) THEN
+                    resetSelection this
+                ELSE
+                    IF this.cursor < LEN(this.buffer) THEN this.cursor = this.cursor + 1
+                END IF
+            END IF
+        END IF
+        IF invoke.jumptoend THEN
+            IF shiftDown THEN
+                this.sel_start = this.cursor + 1
+                this.sel_end = LEN(this.buffer)
+            ELSE
+                this.cursor = LEN(this.buffer)
+            END IF
+        END IF
+        IF invoke.jumptofront THEN
+            IF shiftDown THEN
+                this.sel_start = this.cursor
+                this.sel_end = 1
+            ELSE
+                this.cursor = 0
+            END IF
+        END IF
+    END IF
+
+    'selection management
+    IF longSelection(this) AND (invoke.delete OR invoke.back) THEN 'deleting with selection
+        addToHistory this, elementindex
+        deleteSelection this
+    ELSE 'deleting only one character
+        IF invoke.back AND this.cursor > 0 THEN 'backspace
+            addToHistory this, elementindex
+            this.buffer = MID$(this.buffer, 1, this.cursor - 1) + MID$(this.buffer, this.cursor + 1, LEN(this.buffer))
+            this.cursor = this.cursor - 1
+            resetSelection this
+        ELSEIF invoke.delete AND this.cursor < LEN(this.buffer) THEN 'delete
+            addToHistory this, elementindex
+            this.buffer = MID$(this.buffer, 1, this.cursor) + MID$(this.buffer, this.cursor + 2, LEN(this.buffer))
+            resetSelection this
+        END IF
+    END IF
+END SUB
+
+SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, invoke AS invoke, currentfont AS LONG)
+    checkGlobal this
+    _FONT currentfont
+    SELECT CASE this.type
+        CASE "button"
+            rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
+            coord.x = coord.x + (2 * global.padding)
+            coord.y = coord.y + global.padding
+            IF LCASE$(this.style) = "bf" THEN
+                COLOR col&("bg1"), col&("t")
+            ELSE
+                COLOR this.drawcolor, col&("t")
+            END IF
+            _PRINTSTRING (coord.x, coord.y), this.text + " " + this.buffer
+        CASE "input"
+            underlinedistance = -2
+            LINE (coord.x, coord.y + coord.h + underlinedistance)-(coord.x + coord.w - (2 * global.padding), coord.y + coord.h + underlinedistance), this.drawcolor
+            COLOR this.drawcolor, col&("t")
+            _PRINTSTRING (coord.x, coord.y), this.text + " " + this.buffer
+        CASE "text"
+            coord.y = coord.y + global.padding
+            COLOR this.drawcolor, col&("t")
+            checkForSpecialText this
+            _PRINTSTRING (coord.x, coord.y), this.text + " " + this.buffer
+        CASE "title"
+            _FONT font_big
+            COLOR this.drawcolor, col&("t")
+            _PRINTSTRING (coord.x, coord.y), this.text
+            _FONT font_normal
+        CASE "line"
+            LINE (coord.x, coord.y)-(coord.x + coord.w - global.padding, coord.y), this.drawcolor
+        CASE "box"
+            rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
+        CASE "gradient"
+            makeGradient this, -1
+            drawGradient 1, coord.x, coord.x + coord.w, coord.y, coord.y + coord.h, 0, "h"
+        CASE "checkbox"
+            boxsize = _FONTHEIGHT(currentfont) * 0.75
+            boxoffset = 0
+            coord.w = coord.w + boxsize + global.margin
+            coord.y = coord.y + global.padding
+            rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y + boxoffset) + ";w=" + LST$(boxsize) + ";h=" + LST$(boxsize) + ";style=b;round=0", this.drawcolor
+            inset = 3
+            IF this.state = -1 THEN rectangle "x=" + LST$(coord.x + inset) + ";y=" + LST$(coord.y + boxoffset + inset) + ";w=" + LST$(boxsize - (2 * inset)) + ";h=" + LST$(boxsize - (2 * inset)) + ";style=bf;round=0", this.drawcolor
+            COLOR this.drawcolor, col&("t")
+            _PRINTSTRING (coord.x + boxsize + global.margin, coord.y), this.text + " " + switchWord$(this.switchword, this.state)
+        CASE "radiobutton"
+            boxsize = _FONTHEIGHT(currentfont) * 0.75
+            boxoffset = 0
+            coord.w = coord.w + boxsize + global.margin
+            cx = coord.x + (boxsize / 2)
+            cy = coord.y + (boxsize / 2)
+            CIRCLE (cx, cy), boxsize * 0.5, this.drawcolor
+            IF this.state = -1 THEN
+                CIRCLE (cx, cy), boxsize * 0.3, this.drawcolor
+                PAINT (cx, cy), this.drawcolor, this.drawcolor
+            END IF
+            COLOR this.drawcolor, col&("t")
+            _PRINTSTRING (coord.x + boxsize + global.margin, coord.y), this.text + " " + switchWord$(this.switchword, this.state)
+        CASE "dropdown"
+            IF NOT this.expand THEN rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=0;round=" + this.round, this.drawcolor
+            coord.x = coord.x + (2 * global.padding)
+            coord.y = coord.y + global.padding
+            IF LCASE$(this.style) = "bf" THEN
+                COLOR col&("bg1"), col&("t")
+            ELSE
+                COLOR this.drawcolor, col&("t")
+            END IF
+            _PRINTSTRING (coord.x, coord.y), this.text + " " + this.buffer
+        CASE "slider"
+            coord.y = coord.y + global.padding
+            COLOR this.drawcolor, col&("t")
+            _PRINTSTRING (coord.x, coord.y), this.text
+            textwidth = LEN(this.text) * _FONTWIDTH(currentfont) + global.margin
+            _PRINTSTRING (coord.x + textwidth + global.sliderwidth + global.margin, coord.y), this.buffer
+            val_start = coord.x + textwidth
+            val_end = coord.x + textwidth + global.sliderwidth
+            cy = coord.y + (_FONTHEIGHT(currentfont) / 2)
+            circlesize = (_FONTHEIGHT(currentfont) * 0.75) * 0.5
+            CIRCLE (val_start + (this.value * (val_end - val_start)), cy), circlesize, this.drawcolor, BF
+            PAINT (val_start + (this.value * (val_end - val_start)), cy), this.drawcolor, this.drawcolor
+            LINE (val_start, cy)-(val_end, cy + 1), this.drawcolor, BF
+        CASE "list"
+            coord.x = coord.x + (2 * global.padding)
+            coord.y = coord.y + global.padding
+            SELECT CASE this.name
+                'CASE "linklist"
+                'searchnode$ = elements(gettitleid).text
+                'DIM AS STRING linkarray(0)
+                'getlinkarray linkarray(), searchnode$
+                'displaylistarray this, nodearray(), coord, currentfont
+            END SELECT
+            rectangle "x=" + LST$(coord.x - (2 * global.padding)) + ";y=" + LST$(coord.y - global.padding) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
+        CASE "canvas"
+            'rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
+            displayLayers
+    END SELECT
+    displaySelection this, elementindex, coord, currentfont
+END SUB
+
+SUB displayElement (elementindex AS INTEGER, keyhit AS INTEGER) 'parses abstract coordinates into discrete coordinates
+    DIM this AS element
+    DIM bufferchar AS STRING
+    DIM invoke AS invoke
+    this = elements(elementindex)
+
+    REDIM currentfont AS LONG
+    currentfont = getCurrentFont&(this)
+
+    IF active(elementindex) THEN bufferchar = getBufferChar$(this, keyhit)
+
+    'general
+    SELECT CASE keyhit
+        CASE 8: invoke.back = -1 'backspace
+        CASE 9 'tab
+            IF shiftDown THEN
+                waitUntilReleased keyhit
+                activeelement = getLastElement(currentview, activeelement)
+            ELSE
+                waitUntilReleased keyhit
+                activeelement = getNextElement(currentview, activeelement)
+            END IF
+        CASE 13 'enter
+            waitUntilReleased keyhit
+            buffer$ = ""
+            IF this.action <> "" THEN buffer$ = "action=" + this.action + ";"
+            IF shiftDown THEN
+                activeelement = getNextElement(currentview, activeelement)
+            ELSE
+                doThis buffer$ + getCurrentInputValues$(-1), 0
+            END IF
+        CASE 27
+            doThis "action=view.main;" + getCurrentInputValues$(0), 0
+        CASE 21248: invoke.delete = -1 'delete
+        CASE 19200: invoke.left = -1 'left arrow
+        CASE 19712: invoke.right = -1 'right arrow
+        CASE 20224: invoke.jumptoend = -1 'end key
+        CASE 18176: invoke.jumptofront = -1 'home key
+    END SELECT
+
+    elementKeyHandling this, elementindex, bufferchar, invoke
+
+    DIM coord AS rectangle
+    getCoord coord, elementindex, currentfont
+
+    elementMouseHandling this, elementindex, invoke, coord, currentfont
+    IF isException(this.name) THEN this.buffer = getExceptionValue$(this.name)
+    drawElement this, elementindex, coord, invoke, currentfont
+
+    elements(elementindex) = this
+END SUB
+
+SUB clickListItem (this AS element, array() AS STRING, n AS INTEGER)
+    SELECT CASE this.name
+        CASE "nodelist"
+            doThis "action=view.nodegraph;nodetarget=" + array(n), 0
+        CASE "linklist"
+            'TODO
+    END SELECT
+END SUB
+
+SUB getListItems (array() AS STRING, sourcearray() AS STRING, index AS INTEGER, this AS element)
+    SELECT CASE this.name
+        'CASE "linklist"
+        '    REDIM AS STRING array(3)
+        '    array(1) = getargument$(sourcearray(index), "nodeorigin")
+        '    array(2) = getargument$(sourcearray(index), "linkname")
+        '    array(3) = getargument$(sourcearray(index), "nodetarget")
+    END SELECT
+END SUB
+
+SUB loadConfig
+    configfile$ = _TRIM$(global.intpath) + "\config.dst"
+    proofFile configfile$, -1
+    freen = FREEFILE
+    OPEN configfile$ FOR INPUT AS #freen
+    IF EOF(freen) = 0 THEN
+        DO
+            INPUT #freen, configline$
+            config$ = config$ + configline$
+        LOOP UNTIL EOF(freen) = -1
+    END IF
+    CLOSE #freen
+
+    global.padding = getArgumentv(config$, "padding")
+    global.margin = getArgumentv(config$, "margin")
+    global.round = getArgumentv(config$, "round")
+    global.license = getArgument$(config$, "license")
+    global.partialsearch = getArgumentv(config$, "partialsearch")
+    global.scheme = getArgument$(config$, "colorscheme")
+    global.matchthreshhold = getArgumentv(config$, "matchthreshhold")
+    global.windowsize = getArgumentv(config$, "windowsize")
+    loadColors global.scheme
+    loadFonts
+    IF checkLicense(_INFLATE$(global.license)) = 0 THEN setLicense "", 0: saveConfig
+    IF global.license <> "" THEN global.licensestatus = -1
+END SUB
+
+SUB resetConfig
+    config$ = "round=3;margin=10;padding=6;license=;colorscheme=dark;matchthreshhold=2;partialsearch=-1;windowsize=.5"
+    configfile$ = _TRIM$(global.intpath) + "\config.dst"
+    freen = FREEFILE
+    OPEN configfile$ FOR OUTPUT AS #freen
+    PRINT #freen, config$
+    CLOSE #freen
+END SUB
+
+SUB saveConfig
+    config$ = "round=" + LST$(global.round) + ";margin=" + LST$(global.margin) + ";padding=" + LST$(global.padding) + ";license=" + _TRIM$(global.license)
+    config$ = config$ + ";colorscheme=" + _TRIM$(global.scheme) + ";matchthreshhold=" + LST$(global.matchthreshhold) + ";partialsearch=" + LST$(global.partialsearch) + ";windowsize=" + LST$(global.windowsize)
+    configfile$ = _TRIM$(global.intpath) + "\config.dst"
+    freen = FREEFILE
+    OPEN configfile$ FOR OUTPUT AS #freen
+    PRINT #freen, config$
+    CLOSE #freen
+END SUB
+
+SUB drawShape (arguments AS STRING, clr AS LONG)
+    DIM AS _FLOAT x, y, w, h, thickness
+    x = getArgumentv(arguments, "x")
+    y = getArgumentv(arguments, "y")
+    w = getArgumentv(arguments, "w")
+    h = getArgumentv(arguments, "h")
+    thickness = getArgumentv(arguments, "thickness")
+    SELECT CASE getArgument$(arguments, "shape")
+        CASE "+"
+            LINE (x + (w / 2) - (thickness / 2), y)-(x + (w / 2) + (thickness / 2), y + h), clr, BF
+            LINE (x, y + (h / 2) - (thickness / 2))-(x + w, y + (h / 2) + (thickness / 2)), clr, BF
+        CASE "x"
+    END SELECT
+END SUB
+
+FUNCTION checkLicense (license$)
+    IF _FILEEXISTS("license.txt") THEN KILL "license.txt"
+    shellcmd$ = "cmd /c curl http://api.gumroad.com/v2/licenses/verify -d " + CHR$(34) + "product_permalink=" + _TRIM$(global.permalinkCode) + CHR$(34) + " -d " + CHR$(34) + "license_key=" + license$ + CHR$(34) + " > license.txt"
+    SHELL _HIDE shellcmd$
+    DO: LOOP UNTIL _FILEEXISTS("license.txt") = -1
+    OPEN "license.txt" FOR INPUT AS #1
+    IF EOF(1) = 0 THEN
+        DO
+            LINE INPUT #1, licensecallback$
+            p = 0
+            u = 0
+            o = 0
+            DO
+                p = p + 1
+                IF MID$(licensecallback$, p, 1) = CHR$(34) THEN
+                    u = p
+                    DO: u = u + 1: LOOP UNTIL MID$(licensecallback$, u, 1) = CHR$(34)
+                    attribute$ = MID$(licensecallback$, p + 1, u - p - 1)
+                    IF attribute$ <> "purchase" AND attribute$ <> "custom_fields" AND attribute$ <> "How did you discover "+_TRIM$(global.programname)+"?" AND attribute$ <> "variants" THEN
+                        o = u
+                        DO: o = o + 1: LOOP UNTIL MID$(licensecallback$, o, 1) = "," OR MID$(licensecallback$, o, 1) = "}"
+                        IF MID$(licensecallback$, o - 1, 1) = CHR$(34) THEN
+                            value$ = MID$(licensecallback$, u + 3, o - u - 4)
+                        ELSE
+                            value$ = MID$(licensecallback$, u + 2, o - u - 2)
+                        END IF
+                        p = o
+                        SELECT CASE attribute$
+                            CASE IS = "success": success$ = value$
+                            CASE IS = "uses": uses = VAL(value$)
+                            CASE IS = "seller_id": sellerID$ = value$
+                            CASE IS = "product_id": productID$ = value$
+                            CASE IS = "product_name": productname$ = value$
+                            CASE IS = "permalink": permalink$ = value$
+                            CASE IS = "product_permalink": productpermalink$ = value$
+                            CASE IS = "email": email$ = value$
+                            CASE IS = "price": price = VAL(value$)
+                            CASE IS = "currency": currency$ = value$
+                            CASE IS = "quantity": quantity = VAL(value$)
+                            CASE IS = "order_number": ordernumber = VAL(value$)
+                            CASE IS = "sale_id": saleID$ = value$
+                            CASE IS = "sale_timestamp": saletimestamp$ = value$
+                            CASE IS = "purchaser_id": purchaserID = VAL(value$)
+                            CASE IS = "test": test$ = value$
+                            CASE IS = "How did you discover Datanet?": discovery$ = value$
+                            CASE IS = "license_key": licensekey$ = value$
+                            CASE IS = "ip_country": IPcountry$ = value$
+                            CASE IS = "is_gift_receiver_purchase": isgift$ = value$
+                            CASE IS = "refunded": refunded$ = value$
+                            CASE IS = "disputed": disputed$ = value$
+                            CASE IS = "dispute_won": disputewon$ = value$
+                            CASE IS = "id": id$ = value$
+                            CASE IS = "created_at": createdat$ = value$
+                            CASE IS = "variants": variants$ = value$
+                            CASE IS = "chargebacked": chargebacked$ = value$
+                            CASE IS = "ended_at": endedat$ = value$
+                            CASE IS = "failed_at": failedat$ = value$
+                        END SELECT
+                    ELSE
+                        DO: p = p + 1: LOOP UNTIL MID$(licensecallback$, p, 1) = "{" OR MID$(licensecallback$, p, 1) = "[" OR MID$(licensecallback$, p, 1) = ","
+                    END IF
+                    attribute$ = ""
+                    value$ = ""
+                END IF
+            LOOP UNTIL p >= LEN(licensecallback$)
+        LOOP UNTIL EOF(1) = -1
+    END IF
+    CLOSE #1
+    KILL "license.txt"
+    IF success$ = "true" AND productname$ = _TRIM$(global.programname) AND permalink$ = _TRIM$(global.permalink) AND licensekey$ = license$ AND endedat$ = "" AND failedat$ = "" THEN
+        checkLicense = -1
+    ELSE
+        checkLicense = 0
+    END IF
+END FUNCTION

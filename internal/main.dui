@@ -1,9 +1,5 @@
+type=filelist;x=0;y=prevb;w=full;h=flex;color=ui;hovercolor=ui;name=filelist;angle=0;
 type=canvas;x=0;y=0;w=full;h=full;color=ui;hovercolor=ui;name=canvas;angle=0
-type=title;x=margin;y=margin;w=flex;h=25;color=ui;hovercolor=ui;text=Console;name=title;hovertext=This is the current view
-type=input;x=prev;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=Command:;angle=0;allownumbers=-1;allowtext=-1;allowspecial=-1;name=commandline;hovertext=Type your commands here
 type=text;x=margin;y=prevb;w=flex;h=25;color=ui;hovercolor=ui;name=transmit;hovertext=This space is to display status messages
-type=button;x=prev;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;style=b;text=New node;angle=0;name=Baddnode;action=add.node;hovertext=Adds a new node to the database
-type=list;x=margin;y=prevb;w=full;h=nextt;color=ui;hovercolor=ui;name=nodelist;style=b;content=commandline;hovertext=Displays search results based on the commandline
 type=text;x=margin;y=b;w=flex;h=25;color=ui;hovercolor=ui;name=time;style=bf;angle=0;text=Time:;hovertext=Displays the current time
-type=button;x=right;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=quit;style=b;angle=0;text=Quit;action=quit;hovertext=Closes the program
-type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=settings;style=b;angle=0;text=Settings;action=view.settings;hovertext=Opens the settings menu
+type=button;x=right;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=settings;style=b;angle=0;text=Settings;action=view.settings;hovertext=Opens the settings menu
