@@ -1099,6 +1099,13 @@ FUNCTION getEXPos$ (e AS INTEGER, currentfont AS LONG)
         getEXPos$ = LST$(_WIDTH(0) - VAL(getEWidth$(e, currentfont)) - global.margin)
     ELSEIF (elements(e).x = "margin" OR elements(e).x = "m" OR elements(e).x = "left" OR elements(e).x = "l" OR elements(e).x = "0") THEN
         getEXPos$ = LST$(global.margin)
+    ELSEIF (elements(e).x = "center" OR elements(e).x = "c") THEN
+        getEXPos$ = LST$(INT((_WIDTH(0) / 2) - (VAL(getEWidth$(e, currentfont)) / 2)))
+    ELSEIF INSTR(elements(e).y, "/") THEN
+        firstpart$ = MID$(elements(e).x, 1, INSTR(elements(e).x, "/") - 1)
+        secondpart$ = MID$(elements(e).x, INSTR(elements(e).x, "/") + 1, LEN(elements(e).x))
+        relation = VAL(firstpart$) / VAL(secondpart$)
+        getEXPos$ = LST$(relation * _WIDTH(0))
     ELSE
         getEXPos$ = elements(e).x
     END IF
@@ -1117,6 +1124,13 @@ FUNCTION getEYPos$ (e AS INTEGER, currentfont AS LONG)
         getEYPos$ = LST$(_HEIGHT(0) - VAL(getEHeight$(e, currentfont)) - global.margin)
     ELSEIF (elements(e).y = "margin" OR elements(e).y = "m" OR elements(e).y = "top" OR elements(e).y = "t" OR elements(e).y = "0") THEN
         getEYPos$ = LST$(global.margin)
+    ELSEIF (elements(e).y = "center" OR elements(e).y = "c") THEN
+        getEYPos$ = LST$(INT((_HEIGHT(0) / 2) - (VAL(getEHeight$(e, currentfont)))) / 2)
+    ELSEIF INSTR(elements(e).y, "/") THEN
+        firstpart$ = MID$(elements(e).y, 1, INSTR(elements(e).y, "/") - 1)
+        secondpart$ = MID$(elements(e).y, INSTR(elements(e).y, "/") + 1, LEN(elements(e).y))
+        relation = VAL(firstpart$) / VAL(secondpart$)
+        getEYPos$ = LST$(relation * _HEIGHT(0))
     ELSE
         getEYPos$ = elements(e).y
     END IF
