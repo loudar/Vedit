@@ -80,7 +80,7 @@ FUNCTION checkKeyboard
 END FUNCTION
 
 SUB displayView (keyhit AS INTEGER) 'displays a "view"
-    'LINE (0, 0)-(_WIDTH(0), _HEIGHT(0)), col&("bg1"), BF
+    LINE (0, 0)-(_WIDTH(0), _HEIGHT(0)), col&("bg1"), BF
     IF UBOUND(elements) > 0 THEN
         DO: e = e + 1
             IF elements(e).view = currentview THEN
@@ -1354,7 +1354,10 @@ END SUB
 
 SUB loadColors (scheme AS STRING)
     REDIM _PRESERVE schemecolor(0) AS colour
-    file$ = _TRIM$(global.intpath) + "\schemes\" + scheme + ".colors"
+    file$ = _TRIM$(global.intpath) + "\schemes\" + _TRIM$(scheme) + ".colors"
+    'PRINT file$, file$ , file$,file$
+    '_DISPLAY
+    'sleep
     IF NOT _FILEEXISTS(file$) THEN
         file$ = _TRIM$(global.intpath) + "\schemes\dark.colors"
     END IF

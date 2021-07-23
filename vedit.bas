@@ -431,9 +431,9 @@ SUB displayLayers (coord AS rectangle)
         IF layer = file.activeLayer THEN layerIsActive = -1 ELSE layerIsActive = 0
         SELECT CASE layerInfo(layer).type
             CASE "vector"
-                displayLines layerInfo(layer).contentid, layerIsActive
+                displayLines layerInfo(layer).contentid, layerIsActive, coord
                 IF layerIsActive THEN
-                    displayPoints layerInfo(layer).contentid
+                    displayPoints layerInfo(layer).contentid, coord
                 END IF
         END SELECT
     LOOP UNTIL layer = UBOUND(layerInfo)
@@ -451,10 +451,10 @@ END FUNCTION
 
 SUB displayVectorPreview (contentid AS INTEGER)
     _PUTIMAGE (0, 0)-(_WIDTH(vectorPreview(contentid).image), _HEIGHT(vectorPreview(contentid).image)), vectorPreview(contentid).image, 0
-    LINE (1, 1)-(_WIDTH(vectorPreview(contentid).image) - 1, _HEIGHT(vectorPreview(contentid).image) - 1), _RGBA(0, 255, 0, 255), B
+    'LINE (1, 1)-(_WIDTH(vectorPreview(contentid).image) - 1, _HEIGHT(vectorPreview(contentid).image) - 1), _RGBA(0, 255, 0, 255), B
 END SUB
 
-SUB generateVectorPreview (contentid AS INTEGER, maxpoints AS INTEGER, roundFactor)
+SUB generateVectorPreview (contentid AS INTEGER, maxpoints AS INTEGER, roundFactor, coord AS rectangle)
     IF vectorPreview(contentid).image < -1 THEN _FREEIMAGE vectorPreview(contentid).image
     vectorPreview(contentid).image = _NEWIMAGE(_WIDTH, _HEIGHT, 32)
     _DEST vectorPreview(contentid).image
@@ -504,33 +504,37 @@ SUB generateVectorPreview (contentid AS INTEGER, maxpoints AS INTEGER, roundFact
             END SELECT
 
             'PSET (vectorPoints(contentid, i).x + bVecX * (s / sampleCount), vectorPoints(contentid, i).y + bVecY * (s / sampleCount)), _RGBA(255, 255, 255, 20)
-            PSET (vectorPoints(contentid, i).x + pX, vectorPoints(contentid, i).y + pY), _RGBA(255, 255, 255, 255)
+            fx = vectorPoints(contentid, i).x + pX
+            fy = vectorPoints(contentid, i).y + pY
+            IF fx > coord.x AND fx < coord.x + coord.w AND fy > coord.y AND fy < coord.y + coord.h THEN
+                PSET (fx, fy), _RGBA(255, 255, 255, 255)
+            END IF
         LOOP UNTIL s >= sampleCount
     LOOP UNTIL i = maxpoints - 1
     _DEST 0
     displayVectorPreview contentid
 END SUB
 
-SUB displayLines (contentid AS INTEGER, layerIsActive AS _BYTE)
+SUB displayLines (contentid AS INTEGER, layerIsActive AS _BYTE, coord AS rectangle)
     maxPoints = getMaxPoints(contentid)
     IF maxPoints < 2 THEN EXIT SUB
 
     roundFactor = getDownSamplingFactor(roundsSinceEdit, 10)
 
     IF mouse.noMovement >= mouse.movementTimer AND vectorPreview(contentid).mouseStatus = 1 THEN
-        generateVectorPreview contentid, maxPoints, roundFactor
+        generateVectorPreview contentid, maxPoints, roundFactor, coord
         vectorPreview(contentid).status = 1 + layerIsActive
         EXIT SUB
     ELSEIF roundFactor = 1 THEN
         IF vectorPreviewGenerated(contentid, layerIsActive) THEN
             displayVectorPreview contentid
         ELSE
-            generateVectorPreview contentid, maxPoints, 1
+            generateVectorPreview contentid, maxPoints, 1, coord
             vectorPreview(contentid).status = 1 + layerIsActive
         END IF
         EXIT SUB
     ELSE
-        generateVectorPreview contentid, maxPoints, roundFactor
+        generateVectorPreview contentid, maxPoints, roundFactor, coord
         vectorPreview(contentid).status = 0
     END IF
 END SUB
@@ -565,50 +569,54 @@ FUNCTION getHandleInfluence (currentSample, sampleCount AS _INTEGER64)
     getHandleInfluence = buffer
 END FUNCTION
 
-SUB displayPoints (contentid AS INTEGER)
+SUB displayPoints (contentid AS INTEGER, coord AS rectangle)
     maxPoints = getMaxPoints(contentid)
     IF maxPoints > 0 THEN
         i = 0: DO: i = i + 1
-            ' base point
-            IF mouse.noMovement < mouse.movementTimer THEN LINE (vectorPoints(contentid, i).x - pointsize, vectorPoints(contentid, i).y - pointsize)-(vectorPoints(contentid, i).x + pointsize, vectorPoints(contentid, i).y + pointsize), _RGBA(0, 150, 255, 255), BF
-            PSET (vectorPoints(contentid, i).x, vectorPoints(contentid, i).y), _RGBA(255, 255, 255, 255)
+            IF vectorPoints(contentid, i).x > coord.x AND vectorPoints(contentid, i).x < coord.x + coord.w AND vectorPoints(contentid, i).y > coord.y AND vectorPoints(contentid, i).y < coord.y + coord.h THEN
+                ' base point
+                IF mouse.noMovement < mouse.movementTimer THEN LINE (vectorPoints(contentid, i).x - pointsize, vectorPoints(contentid, i).y - pointsize)-(vectorPoints(contentid, i).x + pointsize, vectorPoints(contentid, i).y + pointsize), _RGBA(0, 150, 255, 255), BF
+                PSET (vectorPoints(contentid, i).x, vectorPoints(contentid, i).y), _RGBA(255, 255, 255, 255)
 
-            IF clickCondition("deletePoint", vectorPoints(contentid, i).x, vectorPoints(contentid, i).y) THEN
-                IF i < maxPoints THEN
-                    i2 = i: DO
-                        vectorPoints(contentid, i2) = vectorPoints(contentid, i2 + 1)
-                        i2 = i2 + 1
-                    LOOP UNTIL i2 = maxPoints
-                END IF
-                vectorPoints(contentid, maxPoints) = vectorPoints(0, 0)
-                maxPoints = maxPoints - 1
-                roundsSinceEdit = 0
-            ELSEIF clickCondition("movePoint", vectorPoints(contentid, i).x, vectorPoints(contentid, i).y) OR activeGrab = i THEN
-                HoffX = vectorPoints(contentid, i).handlex - vectorPoints(contentid, i).x
-                HoffY = vectorPoints(contentid, i).handley - vectorPoints(contentid, i).y
-                vectorPoints(contentid, i).x = mouse.x: vectorPoints(contentid, i).y = mouse.y
-                vectorPoints(contentid, i).handlex = vectorPoints(contentid, i).x + HoffX
-                vectorPoints(contentid, i).handley = vectorPoints(contentid, i).y + HoffY
-                activeGrab = i
-                roundsSinceEdit = 0
-            END IF
-
-            ' handle
-            IF pointDeleted = 0 AND mouse.noMovement < mouse.movementTimer THEN
-                LINE (vectorPoints(contentid, i).x, vectorPoints(contentid, i).y)-(vectorPoints(contentid, i).handlex, vectorPoints(contentid, i).handley), _RGBA(255, 255, 255, 100)
-                CIRCLE (vectorPoints(contentid, i).handlex, vectorPoints(contentid, i).handley), pointsize * 0.75, _RGBA(255, 205, 11, 255)
-                PAINT (vectorPoints(contentid, i).handlex, vectorPoints(contentid, i).handley), _RGBA(255, 205, 11, 255), _RGBA(255, 205, 11, 255)
-
-                IF clickCondition("moveHandle", vectorPoints(contentid, i).handlex, vectorPoints(contentid, i).handley) OR activeHandleGrab = i THEN
-                    vectorPoints(contentid, i).handlex = mouse.x: vectorPoints(contentid, i).handley = mouse.y
-                    activeHandleGrab = i
+                IF clickCondition("deletePoint", vectorPoints(contentid, i).x, vectorPoints(contentid, i).y, coord) THEN
+                    IF i < maxPoints THEN
+                        i2 = i: DO
+                            vectorPoints(contentid, i2) = vectorPoints(contentid, i2 + 1)
+                            i2 = i2 + 1
+                        LOOP UNTIL i2 = maxPoints
+                    END IF
+                    vectorPoints(contentid, maxPoints) = vectorPoints(0, 0)
+                    maxPoints = maxPoints - 1
                     roundsSinceEdit = 0
+                ELSEIF clickCondition("movePoint", vectorPoints(contentid, i).x, vectorPoints(contentid, i).y, coord) OR activeGrab = i THEN
+                    IF mouse.x > coord.x AND mouse.x < coord.x + coord.w AND mouse.y > coord.y AND mouse.y < coord.y + coord.h THEN
+                        HoffX = vectorPoints(contentid, i).handlex - vectorPoints(contentid, i).x
+                        HoffY = vectorPoints(contentid, i).handley - vectorPoints(contentid, i).y
+                        vectorPoints(contentid, i).x = mouse.x: vectorPoints(contentid, i).y = mouse.y
+                        vectorPoints(contentid, i).handlex = vectorPoints(contentid, i).x + HoffX
+                        vectorPoints(contentid, i).handley = vectorPoints(contentid, i).y + HoffY
+                        activeGrab = i
+                        roundsSinceEdit = 0
+                    END IF
+                END IF
+
+                ' handle
+                IF pointDeleted = 0 AND mouse.noMovement < mouse.movementTimer THEN
+                    LINE (vectorPoints(contentid, i).x, vectorPoints(contentid, i).y)-(vectorPoints(contentid, i).handlex, vectorPoints(contentid, i).handley), _RGBA(255, 255, 255, 100)
+                    CIRCLE (vectorPoints(contentid, i).handlex, vectorPoints(contentid, i).handley), pointsize * 0.75, _RGBA(255, 205, 11, 255)
+                    PAINT (vectorPoints(contentid, i).handlex, vectorPoints(contentid, i).handley), _RGBA(255, 205, 11, 255), _RGBA(255, 205, 11, 255)
+
+                    IF clickCondition("moveHandle", vectorPoints(contentid, i).handlex, vectorPoints(contentid, i).handley, coord) OR activeHandleGrab = i THEN
+                        vectorPoints(contentid, i).handlex = mouse.x: vectorPoints(contentid, i).handley = mouse.y
+                        activeHandleGrab = i
+                        roundsSinceEdit = 0
+                    END IF
                 END IF
             END IF
         LOOP UNTIL i >= maxPoints
     END IF
 
-    IF clickCondition("createPoint", 0, 0) THEN
+    IF clickCondition("createPoint", 0, 0, coord) THEN
         createPoint mouse.x, mouse.y, mouse.x, mouse.y, contentid
         roundsSinceEdit = 0
     END IF
@@ -658,27 +666,29 @@ FUNCTION pointEmpty (vectorPoint AS vectorPoint)
     END IF
 END FUNCTION
 
-FUNCTION clickCondition (conditionName AS STRING, x AS DOUBLE, y AS DOUBLE)
-    SELECT CASE conditionName
-        CASE "deletePoint"
-            IF mouse.middle AND inRadius(x, y, mouse.x, mouse.y, 20) AND mouse.middletimedif > .01 THEN
-                clickCondition = -1
-            ELSEIF ctrlDown AND mouse.left AND inRadius(x, y, mouse.x, mouse.y, 20) AND mouse.lefttimedif > .01 THEN
-                clickCondition = -1
-            ELSE clickCondition = 0
-            END IF
-        CASE "movePoint"
-            IF mouse.left AND inRadius(x, y, mouse.x, mouse.y, 20) THEN clickCondition = -1 ELSE clickCondition = 0
-        CASE "createPoint"
-            IF mouse.middle AND mouse.middletimedif > .01 THEN
-                clickCondition = -1
-            ELSEIF ctrlDown AND mouse.left AND mouse.lefttimedif > .01 THEN
-                clickCondition = -1
-            ELSE clickCondition = 0
-            END IF
-        CASE "moveHandle"
-            IF mouse.right AND inRadius(x, y, mouse.x, mouse.y, 20) THEN clickCondition = -1 ELSE clickCondition = 0
-    END SELECT
+FUNCTION clickCondition (conditionName AS STRING, x AS DOUBLE, y AS DOUBLE, coord AS rectangle)
+    IF mouse.x > coord.x AND mouse.x < coord.x + coord.w AND mouse.y > coord.y AND mouse.y < coord.y + coord.h THEN
+        SELECT CASE conditionName
+            CASE "deletePoint"
+                IF mouse.middle AND inRadius(x, y, mouse.x, mouse.y, 20) AND mouse.middletimedif > .01 THEN
+                    clickCondition = -1
+                ELSEIF ctrlDown AND mouse.left AND inRadius(x, y, mouse.x, mouse.y, 20) AND mouse.lefttimedif > .01 THEN
+                    clickCondition = -1
+                ELSE clickCondition = 0
+                END IF
+            CASE "movePoint"
+                IF mouse.left AND inRadius(x, y, mouse.x, mouse.y, 20) THEN clickCondition = -1 ELSE clickCondition = 0
+            CASE "createPoint"
+                IF mouse.middle AND mouse.middletimedif > .01 THEN
+                    clickCondition = -1
+                ELSEIF ctrlDown AND mouse.left AND mouse.lefttimedif > .01 THEN
+                    clickCondition = -1
+                ELSE clickCondition = 0
+                END IF
+            CASE "moveHandle"
+                IF mouse.right AND inRadius(x, y, mouse.x, mouse.y, 20) THEN clickCondition = -1 ELSE clickCondition = 0
+        END SELECT
+    END IF
 END FUNCTION
 
 '--------------------------------------------------------------------------------------------------------------------------------------'
