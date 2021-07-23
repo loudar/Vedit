@@ -124,6 +124,32 @@ SUB displayMenu (elementindex AS INTEGER, keyhit AS INTEGER)
     elements(elementindex) = this 'needed to save the changed data into the original elements array
 END SUB
 
+SUB drawElementText (coord AS rectangle, this AS element, currentfont AS LONG)
+IF LEN(_TRIM$(this.buffer)) > 0 THEN bufferExists = 2.5 ELSE bufferExists = 1.5
+SELECT CASE this.textalign
+    CASE ""
+        _PRINTSTRING (coord.x, coord.y), this.text + " " + this.buffer
+    CASE "topleft"
+        _PRINTSTRING (coord.x, coord.y), this.text + " " + this.buffer
+    CASE "left"
+        _PRINTSTRING (coord.x, coord.y + (0.5 * coord.h) - (0.5 * _FONTHEIGHT(currentfont))), this.text + " " + this.buffer
+    CASE "bottomleft"
+        _PRINTSTRING (coord.x, coord.y + coord.h - (1.5 * _FONTHEIGHT(currentfont))), this.text + " " + this.buffer
+    CASE "topcenter"
+        _PRINTSTRING (coord.x + (0.5 * coord.w) - (0.5 * (_FONTWIDTH(currentfont) * (LEN(this.text + this.buffer) + bufferExists))), coord.y), this.text + " " + this.buffer
+    CASE "center"
+        _PRINTSTRING (coord.x + (0.5 * coord.w) - (0.5 * (_FONTWIDTH(currentfont) * (LEN(this.text + this.buffer) + bufferExists))), coord.y + (0.5 * coord.h) - (0.5 * _FONTHEIGHT(currentfont))), this.text + " " + this.buffer
+    CASE "bottomcenter"
+        _PRINTSTRING (coord.x + (0.5 * coord.w) - (0.5 * (_FONTWIDTH(currentfont) * (LEN(this.text + this.buffer) + bufferExists))), coord.y + coord.h - (1.5 * _FONTHEIGHT(currentfont))), this.text + " " + this.buffer
+    CASE "topright"
+        _PRINTSTRING (coord.x + coord.w - (_FONTWIDTH(currentfont) * (LEN(this.text + this.buffer) + bufferExists)), coord.y), this.text + " " + this.buffer
+    CASE "right"
+        _PRINTSTRING (coord.x + coord.w - (_FONTWIDTH(currentfont) * (LEN(this.text + this.buffer) + bufferExists)), coord.y + (0.5 * coord.h) - (0.5 * _FONTHEIGHT(currentfont))), this.text + " " + this.buffer
+    CASE "bottomright"
+        _PRINTSTRING (coord.x + coord.w - (_FONTWIDTH(currentfont) * (LEN(this.text + this.buffer) + bufferExists)), coord.y + coord.h - (1.5 * _FONTHEIGHT(currentfont))), this.text + " " + this.buffer
+END SELECT
+END SUB
+
 FUNCTION getTitleID
     IF UBOUND(elements) = 0 THEN EXIT FUNCTION
     DO: e = e + 1
@@ -323,6 +349,7 @@ SUB loadUI
                             elements(eub).group = getArgument$(uielement$, "group")
                             elements(eub).options = getArgument$(uielement$, "options")
                             elements(eub).font = getArgument$(uielement$, "font")
+                            elements(eub).textalign = getArgument$(uielement$, "textalign")
                             elements(eub).selected = 0
 
                             checkGlobal elements(eub)

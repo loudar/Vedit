@@ -205,21 +205,21 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
             ELSE
                 COLOR this.drawcolor, col&("t")
             END IF
-            _PRINTSTRING (coord.x, coord.y), this.text + " " + this.buffer
+            drawElementText coord, this, currentfont
         CASE "input"
             underlinedistance = -2
             LINE (coord.x, coord.y + coord.h + underlinedistance)-(coord.x + coord.w - (2 * global.padding), coord.y + coord.h + underlinedistance), this.drawcolor
             COLOR this.drawcolor, col&("t")
-            _PRINTSTRING (coord.x, coord.y), this.text + " " + this.buffer
+            drawElementText coord, this, currentfont
         CASE "text"
             coord.y = coord.y + global.padding
             COLOR this.drawcolor, col&("t")
             checkForSpecialText this
-            _PRINTSTRING (coord.x, coord.y), this.text + " " + this.buffer
+            drawElementText coord, this, currentfont
         CASE "title"
             _FONT font_big
             COLOR this.drawcolor, col&("t")
-            _PRINTSTRING (coord.x, coord.y), this.text
+            drawElementText coord, this, currentfont
             _FONT font_normal
         CASE "line"
             LINE (coord.x, coord.y)-(coord.x + coord.w - global.padding, coord.y), this.drawcolor
@@ -260,7 +260,7 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
             ELSE
                 COLOR this.drawcolor, col&("t")
             END IF
-            _PRINTSTRING (coord.x, coord.y), this.text + " " + this.buffer
+            drawElementText coord, this, currentfont
         CASE "slider"
             coord.y = coord.y + global.padding
             COLOR this.drawcolor, col&("t")
@@ -287,7 +287,9 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
             rectangle "x=" + LST$(coord.x - (2 * global.padding)) + ";y=" + LST$(coord.y - global.padding) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
         CASE "canvas"
             'rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
-            displayLayers
+            displayLayers coord
+        CASE "filelist"
+            rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
     END SELECT
     displaySelection this, elementindex, coord, currentfont
 END SUB

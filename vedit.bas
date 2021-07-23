@@ -217,7 +217,7 @@ FUNCTION getColumn (column AS _INTEGER64)
     getColumn = 10 + (_FONTWIDTH * column)
 END FUNCTION
 
-SUB displayLayers
+SUB displayLayers (coord AS rectangle)
     IF UBOUND(layerInfo) < 1 THEN EXIT SUB
     layer = 0: DO: layer = layer + 1
         IF layer = activeLayer THEN layerIsActive = -1 ELSE layerIsActive = 0
