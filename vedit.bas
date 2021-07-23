@@ -10,18 +10,21 @@ OStype$ = MID$(_OS$, INSTR(2, _OS$, "[") + 1, INSTR(INSTR(2, _OS$, "["), _OS$, "
 
 TYPE layerInfo
     AS DOUBLE x, y, w, h
-    AS STRING type
+    AS STRING type, name
     AS INTEGER contentid
 END TYPE
 REDIM SHARED layerInfo(0) AS layerInfo
 
 TYPE fileInfo
-    AS DOUBLE w, h
-    AS STRING name, file, type
+    AS DOUBLE w, h, zoom, xOffset, yOffset
+    AS INTEGER activeLayer
+    AS STRING name, file
 END TYPE
+REDIM SHARED file AS fileInfo
 
 'UI
-'$INCLUDE: 'um.bi'
+'$INCLUDE: 'dependencies/um.bi'
+'$INCLUDE: 'dependencies/opensave.bi'
 
 '--------------------------------------------------------------------------------------------------------------------------------------'
 
@@ -39,7 +42,7 @@ TYPE imageLayer
     h AS _FLOAT 'height
     enabled AS _BYTE 'if visible or not
 END TYPE
-REDIM SHARED imageLayer AS imageLayer
+REDIM SHARED imageLayer(0) AS imageLayer
 REDIM SHARED layerbuffer AS imageLayer
 
 ' Vector layer
@@ -81,12 +84,9 @@ _TITLE "Vedit"
 
 start:
 
-createLayer 0, 0, _WIDTH, _HEIGHT, "vector", UBOUND(vectorPoints, 1) + 1
-activeLayer = 1
-
-loadUI
+loadUI 0
 DO
-    frameStart = TIMER
+    'frameStart = TIMER
     CLS
 
     checkResize
@@ -99,13 +99,217 @@ DO
     IF roundsSinceEdit < 1000 THEN roundsSinceEdit = roundsSinceEdit + 1
 
     'DEBUG
-    lastFrameTime = TIMER - frameStart
-    displayFrameTimes lastFrameTime
+    'lastFrameTime = TIMER - frameStart
+    'displayFrameTimes lastFrameTime
 
     _DISPLAY
     _LIMIT internal.setting.fps
 LOOP UNTIL mainexit = -1 OR restart = -1
 IF restart = -1 THEN GOTO start
+
+SUB saveFileDialog
+    filter$ = "VFI (*.vfi)|*.VFI" + CHR$(0)
+    'filter$ = "VFI (*.vfi)|*.VFI|PNG (*.png)|*.PNG|JPG/JPEG (*.jpeg)|*.JPEG" + CHR$(0)
+    flags& = OFN_OVERWRITEPROMPT + OFN_NOCHANGEDIR '   add flag constants here
+    targetfile$ = GetSaveFileName$("Vedit - Save File", ".\", filter$, 1, flags&, _WINDOWHANDLE)
+    saveFile targetfile$
+END SUB
+
+SUB openFileDialog
+    filter$ = "VFI (*.vfi)|*.VFI" + CHR$(0)
+    flags& = OFN_FILEMUSTEXIST + OFN_NOCHANGEDIR + OFN_READONLY '    add flag constants here
+    sourcefile$ = GetOpenFileName$("Vedit - Open File", ".\", filter$, 1, flags&, _WINDOWHANDLE)
+    openFile sourcefile$
+END SUB
+
+SUB saveFile (targetFile AS STRING)
+    format$ = MID$(targetFile$, _INSTRREV(targetFile$, "."), LEN(targetFile$))
+    SELECT CASE format$
+        CASE ".vfi"
+            writeVFI targetFile$
+        CASE ".png"
+        CASE ".jpeg"
+    END SELECT
+END SUB
+
+SUB writeVFI (targetFile AS STRING)
+    file.file = targetFile
+    freen = FREEFILE
+    OPEN targetFile FOR OUTPUT AS #freen
+    info$ = "type=fileInfo;width=" + LST$(file.w) + ";height=" + LST$(file.h) + ";zoom=" + LST$(file.zoom) + ";xOffset=" + LST$(file.xOffset) + ";yOffset=" + LST$(file.yOffset) + ";activeLayer=" + LST$(file.activeLayer) + ";name=" + file.name + ";file=" + targetFile
+    PRINT #freen, info$
+    IF UBOUND(layerinfo) > 0 THEN
+        i = 0: DO: i = i + 1
+            IF layerInfo(i).type = "image" THEN
+                info$ = "type=layerInfo;layert=image;width=" + LST$(layerInfo(i).w) + ";height=" + LST$(layerInfo(i).h) + ";x=" + LST$(layerInfo(i).x) + ";y=" + LST$(layerInfo(i).y) + ";name=" + layerInfo(i).name + ";contentid=" + LST$(layerInfo(i).contentid) + ";file=" + imageLayer(layerInfo(i).contentid).file
+                PRINT #freen, info$
+            ELSE
+                info$ = "type=layerInfo;layert=vector;width=" + LST$(layerInfo(i).w) + ";height=" + LST$(layerInfo(i).h) + ";x=" + LST$(layerInfo(i).x) + ";y=" + LST$(layerInfo(i).y) + ";name=" + layerInfo(i).name + ";contentid=" + LST$(layerInfo(i).contentid)
+                PRINT #freen, info$
+            END IF
+        LOOP UNTIL i = UBOUND(layerInfo)
+    END IF
+    IF UBOUND(vectorPoints, 1) > 0 THEN
+        i = 0: DO: i = i + 1
+            maxPoints = getMaxPoints(i)
+            IF maxPoints > 0 THEN
+                p = 0: DO: p = p + 1
+                    info$ = "type=vectorPoint;contentid=" + LST$(i) + ";x=" + LST$(vectorPoints(i, p).x) + ";y=" + LST$(vectorPoints(i, p).y) + ";handlex=" + LST$(vectorPoints(i, p).handlex) + ";handley=" + LST$(vectorPoints(i, p).handley)
+                    PRINT #freen, info$
+                LOOP UNTIL p = UBOUND(vectorpoints, 2) OR p = maxPoints
+            END IF
+        LOOP UNTIL i = UBOUND(vectorPoints, 1)
+    END IF
+    CLOSE #freen
+END SUB
+
+SUB loadVFI (sourceFile AS STRING)
+    REDIM _PRESERVE file AS fileInfo
+    REDIM _PRESERVE imageLayer(0) AS imageLayer
+    REDIM _PRESERVE vectorPoints(0, 0) AS vectorPoint
+    REDIM _PRESERVE vectorPreview(0) AS vectorPreview
+
+    freen = FREEFILE
+    OPEN sourceFile FOR INPUT AS #freen
+    IF EOF(freen) = 0 THEN
+        DO
+            LINE INPUT #freen, lineinfo$
+            parseFileInfo lineinfo$
+        LOOP UNTIL EOF(freen) = -1
+    END IF
+    CLOSE #freen
+END SUB
+
+SUB parseFileInfo (source AS STRING)
+    REDIM attributes(0) AS STRING
+    REDIM AS STRING attribute, value
+    createAttributearray source, attributes()
+    IF UBOUND(attributes) > 1 THEN
+        parseAttributeValue attributes(1), attribute, value
+        SELECT CASE value
+            CASE "fileInfo"
+                i = 1: DO: i = i + 1
+                    parseAttributeValue attributes(i), attribute, value
+                    SELECT CASE attribute
+                        CASE "width"
+                            file.w = VAL(value)
+                        CASE "height"
+                            file.h = VAL(value)
+                        CASE "zoom"
+                            file.zoom = VAL(value)
+                        CASE "xOffset"
+                            file.xOffset = VAL(value)
+                        CASE "yOffset"
+                            file.yOffset = VAL(value)
+                        CASE "activeLayer"
+                            file.activeLayer = VAL(value)
+                        CASE "name"
+                            file.name = value
+                        CASE "file"
+                            file.file = value
+                    END SELECT
+                LOOP UNTIL i = UBOUND(attributes)
+            CASE "layerInfo"
+                i = 1: DO: i = i + 1
+                    parseAttributeValue attributes(i), attribute, value
+                    SELECT CASE attribute
+                        CASE "file"
+                            file$ = value
+                        CASE "name"
+                            layname$ = value
+                        CASE "t"
+                            t = VAL(value)
+                        CASE "x"
+                            x = VAL(value)
+                        CASE "y"
+                            y = VAL(value)
+                        CASE "width"
+                            w = VAL(value)
+                        CASE "height"
+                            h = VAL(value)
+                        CASE "contentid"
+                            contentid = VAL(value)
+                        CASE "layert"
+                            layertype$ = value
+                    END SELECT
+                LOOP UNTIL i = UBOUND(attributes)
+                createLayer layname$, x, y, w, h, layertype$, contentid, file$
+            CASE "vectorPoint"
+                i = 1: DO: i = i + 1
+                    parseAttributeValue attributes(i), attribute, value
+                    SELECT CASE attribute
+                        CASE "x"
+                            x = VAL(value)
+                        CASE "y"
+                            y = VAL(value)
+                        CASE "handlex"
+                            handlex = VAL(value)
+                        CASE "handley"
+                            handley = VAL(value)
+                        CASE "contentid"
+                            contentid = VAL(value)
+                    END SELECT
+                LOOP UNTIL i = UBOUND(attributes)
+                createPoint x, y, handlex, handley, contentid
+        END SELECT
+    END IF
+END SUB
+
+SUB parseAttributeValue (source AS STRING, attribute AS STRING, value AS STRING)
+    attribute = MID$(source, 1, INSTR(source, "=") - 1)
+    'value = MID$(source, INSTR(source, "=") + 1, INSTR(source, ";") - INSTR(source, "=") - 1)
+    value = MID$(source, INSTR(source, "=") + 1, LEN(source))
+END SUB
+
+SUB createAttributearray (source AS STRING, targetArray() AS STRING)
+    REDIM buffer AS STRING
+    buffer = source
+    DO: p = p + 1
+        IF MID$(buffer, p, 1) = ";" THEN
+            addstrarray targetArray(), MID$(buffer, 1, p - 1)
+            buffer = MID$(buffer, p + 1, LEN(buffer))
+            p = 0
+        ELSEIF p = LEN(buffer) THEN
+            addstrarray targetArray(), buffer
+        END IF
+    LOOP UNTIL LEN(buffer) = 0 OR p >= LEN(buffer)
+END SUB
+
+SUB addstrarray (array() AS STRING, content AS STRING)
+    REDIM _PRESERVE array(UBOUND(array) + 1) AS STRING
+    array(UBOUND(array)) = content
+END SUB
+
+SUB newFile (filePath AS STRING, fileName AS STRING, width AS INTEGER, height AS INTEGER, activeLayer AS INTEGER, xOff AS DOUBLE, yOff AS DOUBLE, zoom AS DOUBLE)
+    REDIM _PRESERVE file AS fileInfo
+    REDIM _PRESERVE layerInfo(0) AS layerInfo
+
+    file.file = filePath
+    file.name = fileName
+    file.w = width
+    file.h = height
+    file.activeLayer = activeLayer
+    file.xOffset = xOff
+    file.yOffset = yOff
+    file.zoom = zoom
+
+    createLayer "test layer", 0, 0, _WIDTH, _HEIGHT, "vector", UBOUND(vectorPoints, 1) + 1, ""
+    activeLayer = 1
+END SUB
+
+SUB openFile (sourceFile AS STRING)
+    IF sourceFile = "" THEN
+        newFile _CWD$ + "/untitled.vfi", "untitled", 1000, 1000, 1, 0, 0, 1
+    END IF
+    format$ = MID$(sourceFile, _INSTRREV(sourceFile, "."), LEN(sourceFile))
+    SELECT CASE format$
+        CASE ".vfi"
+            loadVFI sourceFile
+        CASE ".png"
+        CASE ".jpeg"
+    END SELECT
+    currentview = "main"
+END SUB
 
 SUB fileDropCheck
     IF _TOTALDROPPEDFILES > 0 THEN
@@ -156,20 +360,24 @@ SUB fileDropCheck
     END IF
 END SUB
 
-SUB createLayer (x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS INTEGER, layerType AS STRING, contentid AS INTEGER)
+SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS INTEGER, layerType AS STRING, contentid AS INTEGER, sourcefile AS STRING)
     REDIM _PRESERVE layerInfo(UBOUND(layerInfo) + 1) AS layerInfo
     layerId = UBOUND(layerInfo)
+    layerInfo(layerId).name = layname
     layerInfo(layerId).x = x
     layerInfo(layerId).y = y
     layerInfo(layerId).w = w
     layerInfo(layerId).h = h
     layerInfo(layerId).type = layerType
     layerInfo(layerId).contentid = contentid
+    file.activeLayer = layerId
     SELECT CASE layerType
         CASE "vector"
             REDIM _PRESERVE vectorPoints(UBOUND(vectorPoints, 1) + 1, UBOUND(vectorPoints, 2)) AS vectorPoint
             REDIM _PRESERVE vectorPreview(UBOUND(vectorPreview) + 1) AS vectorPreview
         CASE "image"
+            REDIM _PRESERVE imageLayer(UBOUND(imageLayer) + 1) AS imageLayer
+            imageLayer(UBOUND(imageLayer)).file = sourcefile
     END SELECT
 END SUB
 
@@ -204,7 +412,7 @@ SUB displayText
     '_PRINTSTRING (getColumn(1), getRow(5)), "Delete point: [CTRL] + [Left Mouse]"
     '_PRINTSTRING (getColumn(1), getRow(6)), "Move point:   [Left Mouse] + Drag"
     '_PRINTSTRING (getColumn(1), getRow(7)), "Move handle:  [Right Mouse] + Drag"
-    'PRINT UBOUND(vectorPoints); " points"
+    'PRINT UBOUND(vectorPoints); " points", UBOUND(layerinfo); " layers"
     'PRINT roundsSinceEdit; " rounds since edit"
     'PRINT _KEYDOWN(100306), mouse.x, mouse.y, mouse.left, mouse.right, mouse.middle, mouse.middlerelease, mouse.lefttimedif
 END SUB
@@ -220,7 +428,7 @@ END FUNCTION
 SUB displayLayers (coord AS rectangle)
     IF UBOUND(layerInfo) < 1 THEN EXIT SUB
     layer = 0: DO: layer = layer + 1
-        IF layer = activeLayer THEN layerIsActive = -1 ELSE layerIsActive = 0
+        IF layer = file.activeLayer THEN layerIsActive = -1 ELSE layerIsActive = 0
         SELECT CASE layerInfo(layer).type
             CASE "vector"
                 displayLines layerInfo(layer).contentid, layerIsActive
@@ -401,16 +609,23 @@ SUB displayPoints (contentid AS INTEGER)
     END IF
 
     IF clickCondition("createPoint", 0, 0) THEN
-        maxPoints = getMaxPoints(contentid) + 1
-        IF UBOUND(vectorPoints, 2) < maxPoints THEN
-            REDIM _PRESERVE vectorPoints(UBOUND(vectorPoints, 1), maxPoints) AS vectorPoint
-        END IF
-        vectorPoints(contentid, maxPoints).x = mouse.x
-        vectorPoints(contentid, maxPoints).y = mouse.y
-        vectorPoints(contentid, maxPoints).handlex = mouse.x
-        vectorPoints(contentid, maxPoints).handley = mouse.y
+        createPoint mouse.x, mouse.y, mouse.x, mouse.y, contentid
         roundsSinceEdit = 0
     END IF
+END SUB
+
+SUB createPoint (x AS INTEGER, y AS INTEGER, handlex AS INTEGER, handley AS INTEGER, contentid AS INTEGER)
+    maxPoints = getMaxPoints(contentid) + 1
+    IF UBOUND(vectorPoints, 1) < contentid THEN
+        REDIM _PRESERVE vectorPoints(contentid, UBOUND(vectorPoints)) AS vectorPoint
+    END IF
+    IF UBOUND(vectorPoints, 2) < maxPoints THEN
+        REDIM _PRESERVE vectorPoints(UBOUND(vectorPoints, 1), maxPoints) AS vectorPoint
+    END IF
+    vectorPoints(contentid, maxPoints).x = x
+    vectorPoints(contentid, maxPoints).y = y
+    vectorPoints(contentid, maxPoints).handlex = handlex
+    vectorPoints(contentid, maxPoints).handley = handley
 END SUB
 
 FUNCTION getMaxPoints (contentid AS INTEGER)
@@ -468,5 +683,6 @@ END FUNCTION
 
 '--------------------------------------------------------------------------------------------------------------------------------------'
 
-'$INCLUDE: 'um.bm'
-'$INCLUDE: 'um_dependent.bm'
+'$INCLUDE: 'dependencies/opensave.bm'
+'$INCLUDE: 'dependencies/um.bm'
+'$INCLUDE: 'dependencies/um_dependent.bm'

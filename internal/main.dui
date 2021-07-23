@@ -1,8 +1,10 @@
 type=filelist;x=0;y=prevb;w=full;h=flex;color=ui;hovercolor=ui;name=filelist;angle=0;
-type=canvas;x=0;y=0;w=full;h=full;color=ui;hovercolor=ui;name=canvas;angle=0
 type=text;x=margin;y=prevb;w=flex;h=25;color=ui;hovercolor=ui;name=transmit;hovertext=This space is to display status messages
 type=text;x=margin;y=b;w=flex;h=25;color=ui;hovercolor=ui;name=time;style=bf;angle=0;text=Time:;hovertext=Displays the current time
-type=button;x=left;y=top;w=flex;h=25;color=ui;hovercolor=ui2;name=newfile;style=b;angle=0;text=New File;action=view.newfile;hovertext=Creates a new file
+type=button;x=left;y=top;w=flex;h=25;color=ui;hovercolor=ui2;name=newfile;style=b;angle=0;text=New;action=view.newfile;hovertext=Creates a new file
+type=button;x=prevr;y=top;w=flex;h=25;color=ui;hovercolor=ui2;name=savefile;style=b;angle=0;text=Save;action=save.file;hovertext=Saves the current file
+type=button;x=prevr;y=top;w=flex;h=25;color=ui;hovercolor=ui2;name=savefile;style=b;angle=0;text=Open;action=open.file;hovertext=Opens a file
+type=canvas;x=left;y=prevb;w=full;h=nextt;color=ui;hovercolor=ui;name=canvas;angle=0;style=bf
 type=button;x=right;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=quit;style=b;angle=0;text=Quit;action=quit
 type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=back;style=b;angle=0;text=Back;action=view.main
 type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=settings;style=b;angle=0;text=Settings;action=view.settings;hovertext=Opens the settings menu

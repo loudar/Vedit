@@ -1,0 +1,8 @@
+type=fileInfo;width=0;height=0;zoom=0;xOffset=0;yOffset=0;activeLayer=1;name=;file=F:\new shit\data\coding\QB\TargonIndustries\Vedit\test.vfi
+type=layerInfo;layert=vector;width=800;height=400;x=0;y=0;name=test layer;contentid=1
+type=vectorPoint;contentid=1;x=260;y=182;handlex=260;handley=182
+type=vectorPoint;contentid=1;x=493;y=141;handlex=493;handley=141
+type=vectorPoint;contentid=1;x=567;y=261;handlex=567;handley=261
+type=vectorPoint;contentid=1;x=396;y=293;handlex=396;handley=293
+type=vectorPoint;contentid=1;x=177;y=278;handlex=177;handley=278
+type=vectorPoint;contentid=1;x=218;y=104;handlex=218;handley=104

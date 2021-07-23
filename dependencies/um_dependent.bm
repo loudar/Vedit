@@ -10,6 +10,12 @@ SUB doThis (arguments AS STRING, recursivecall AS _BYTE) 'program-specific actio
     transmittedtext = getArgument$(arguments, "transmit")
     url = getArgument$(arguments, "url")
     SELECT CASE action$
+        CASE "save.file"
+            saveFileDialog
+        CASE "new.file"
+            openFile ""
+        CASE "open.file"
+            openFileDialog
         CASE "add.license"
             IF set(license) THEN
                 success = add.License$("license=" + license)
@@ -94,8 +100,8 @@ SUB elementKeyHandling (this AS element, elementindex AS INTEGER, bufferchar AS 
                     IF this.name = "commandline" THEN addToHistory this, elementindex: this.buffer = this.buffer + "linkname=": this.cursor = LEN(this.buffer)
                 CASE "3" 'attach "nodeorigin=" to buffer
                     IF this.name = "commandline" THEN addToHistory this, elementindex: this.buffer = this.buffer + "nodetarget=": this.cursor = LEN(this.buffer)
-                CASE "r" 'should reset the offset position, but doesn't for some reason
-                    this.offsetx = 0: this.offsety = 0
+                'CASE "r" 'should reset the offset position, but doesn't for some reason
+                '    this.offsetx = 0: this.offsety = 0
                 CASE ELSE
                     insertBufferChar this, elementindex, bufferchar
             END SELECT
@@ -286,7 +292,8 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
             END SELECT
             rectangle "x=" + LST$(coord.x - (2 * global.padding)) + ";y=" + LST$(coord.y - global.padding) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
         CASE "canvas"
-            'rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
+            rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=bf;angle=0;round=0", _RGBA(0, 0,0, 255)
+            rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=b;angle=0;round=0", this.drawcolor
             displayLayers coord
         CASE "filelist"
             rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor

@@ -75,6 +75,7 @@ END SUB
 
 FUNCTION checkKeyboard
     keyhit = _KEYHIT
+    IF ctrlDown AND keyhit = 114 THEN loadUI -1
     checkKeyboard = keyhit
 END FUNCTION
 
@@ -290,8 +291,9 @@ SUB addFont (fontname AS STRING, fontfile AS STRING)
     font(i).handle = _LOADFONT(fontfile, 16, "MONOSPACE")
 END SUB
 
-SUB loadUI
+SUB loadUI (reload AS _BYTE)
     REDIM _PRESERVE viewname(0) AS STRING
+    REDIM _PRESERVE elements(0) AS element
 
     loadFonts
 
@@ -366,7 +368,9 @@ SUB loadUI
                 PRINT "Error loading UI for view " + LST$(lview)
             END IF
         LOOP UNTIL lview = UBOUND(viewname)
-        currentview = viewname(1)
+        IF reload = 0 THEN
+            currentview = viewname(1)
+        END IF
     ELSE
         PRINT "Could not load UI!"
         SLEEP: SYSTEM
