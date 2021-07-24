@@ -298,7 +298,7 @@ SUB loadUI (reload AS _BYTE)
     loadFonts
 
     freen = FREEFILE
-    viewfile$ = _TRIM$(global.intpath) + "\views.dui"
+    viewfile$ = _TRIM$(global.intpath) + "\views.tui"
     proofFile viewfile$, -1
     OPEN viewfile$ FOR INPUT AS #freen
     IF EOF(freen) = 0 THEN
@@ -307,7 +307,7 @@ SUB loadUI (reload AS _BYTE)
             INPUT #freen, viewname(lview)
         LOOP UNTIL EOF(freen) = -1
     ELSE
-        PRINT "internal/views.dui is empty, could not load UI!"
+        PRINT "internal/views.tui is empty, could not load UI!"
         SLEEP: SYSTEM
     END IF
     CLOSE #freen
@@ -315,7 +315,7 @@ SUB loadUI (reload AS _BYTE)
     IF UBOUND(viewname) > 0 THEN
         lview = 0: DO: lview = lview + 1
             freen = FREEFILE
-            viewfile$ = _TRIM$(global.intpath) + "\" + viewname(lview) + ".dui"
+            viewfile$ = _TRIM$(global.intpath) + "\" + viewname(lview) + ".tui"
             IF _FILEEXISTS(viewfile$) THEN
                 OPEN viewfile$ FOR INPUT AS #freen
                 IF EOF(freen) = 0 THEN
