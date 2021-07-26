@@ -283,22 +283,34 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
         CASE "list"
             coord.x = coord.x + (2 * global.padding)
             coord.y = coord.y + global.padding
-            SELECT CASE this.name
-                'CASE "linklist"
-                'searchnode$ = elements(gettitleid).text
-                'DIM AS STRING linkarray(0)
-                'getlinkarray linkarray(), searchnode$
-                'displaylistarray this, nodearray(), coord, currentfont
-            END SELECT
+            displayList coord, this.content
             rectangle "x=" + LST$(coord.x - (2 * global.padding)) + ";y=" + LST$(coord.y - global.padding) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
         CASE "canvas"
             rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=bf;angle=0;round=0", _RGBA(0, 0,0, 255)
             rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=b;angle=0;round=0", this.drawcolor
             displayLayers coord
-        CASE "filelist"
-            rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
     END SELECT
     displaySelection this, elementindex, coord, currentfont
+END SUB
+
+SUB displayList (coord as rectangle, content as string)
+    redim text as string
+    margin = 5
+    lineheight = _fontheight * 1.6
+    select case content
+        case "layers"
+            do: i = i + 1
+                x = coord.x + margin
+                w = coord.w - (margin * 2)
+                text = layerInfo(i).name
+                if len(text) * _fontwidth >= w then
+                    cutlength = int(w / _fontwidth)
+                    text = mid$(text, 1, cutlength - 3) + "..."
+                end if
+                y = coord.y + margin + (lineheight * (i - 1))
+                _PRINTSTRING (x, y), text
+            loop until i = ubound(layerInfo)
+    end select
 END SUB
 
 SUB displayElement (elementindex AS INTEGER, keyhit AS INTEGER) 'parses abstract coordinates into discrete coordinates

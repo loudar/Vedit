@@ -22,7 +22,7 @@ global.permalinkCode = "xxxx"
 TYPE element
     AS _BYTE show, acceptinput, allownumbers, allowtext, allowspecial, selected, state, deselect
     AS STRING x, y, w, h, style, name, text, buffer, type, color, hovercolor, action, angle, font, textalign
-    AS STRING view, round, hovertext, padding, url, switchword, group, options
+    AS STRING view, round, hovertext, padding, url, switchword, group, options, content
     AS INTEGER sel_start, sel_end, cursor, items, hovertextwait, hoverx, hovery
     AS _UNSIGNED _INTEGER64 scroll
     AS _FLOAT statelock, hovertime, value, offsetx, offsety

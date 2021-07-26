@@ -352,6 +352,7 @@ SUB loadUI (reload AS _BYTE)
                             elements(eub).options = getArgument$(uielement$, "options")
                             elements(eub).font = getArgument$(uielement$, "font")
                             elements(eub).textalign = getArgument$(uielement$, "textalign")
+                            elements(eub).content = getArgument$(uielement$, "content")
                             elements(eub).selected = 0
 
                             checkGlobal elements(eub)
@@ -1137,6 +1138,14 @@ FUNCTION getEXPos$ (e AS INTEGER, currentfont AS LONG)
         secondpart$ = MID$(elements(e).x, INSTR(elements(e).x, "/") + 1, LEN(elements(e).x))
         relation = VAL(firstpart$) / VAL(secondpart$)
         getEXPos$ = LST$(relation * _WIDTH(0))
+    ELSEIF INSTR(elements(e).x, "(") then
+        Rstart = INSTR(elements(e).x, "(")
+        Rend = INSTR(elements(e).x, ")")
+        referredElement$ = MID$(elements(e).x, Rstart + 1, Rend - Rstart - 1)
+        refID = getElementID(referredElement$)
+        if refID then
+            getEXPos$ = getEXPos$(refID, currentfont)
+        end if
     ELSE
         getEXPos$ = elements(e).x
     END IF
@@ -1149,6 +1158,8 @@ FUNCTION getEYPos$ (e AS INTEGER, currentfont AS LONG)
         getEYPos$ = LST$(VAL(getEYPos$(e - 1, currentfont)) - VAL(getEHeight$(e, currentfont)) - global.margin)
     ELSEIF (elements(e).y = "nexttop" OR elements(e).y = "nextt" OR elements(e).y = "nt") AND e < UBOUND(elements) THEN
         getEYPos$ = LST$(VAL(getEYPos$(e + 1, currentfont)) - VAL(getEHeight$(e, currentfont)) - global.margin)
+    ELSEIF (elements(e).y = "nextbottom" OR elements(e).y = "nextb" OR elements(e).y = "nb") AND e < UBOUND(elements) THEN
+        getEYPos$ = LST$(VAL(getEYPos$(e + 1, currentfont)) + VAL(getEHeight$(e + 1, currentfont)) + global.margin)
     ELSEIF (elements(e).y = "previous" OR elements(e).y = "p" OR elements(e).y = "prev") AND e > 1 THEN
         getEYPos$ = getEYPos$(e - 1, currentfont)
     ELSEIF (elements(e).y = "bottom" OR elements(e).y = "b") THEN
@@ -1162,6 +1173,14 @@ FUNCTION getEYPos$ (e AS INTEGER, currentfont AS LONG)
         secondpart$ = MID$(elements(e).y, INSTR(elements(e).y, "/") + 1, LEN(elements(e).y))
         relation = VAL(firstpart$) / VAL(secondpart$)
         getEYPos$ = LST$(relation * _HEIGHT(0))
+    ELSEIF INSTR(elements(e).y, "(") then
+        Rstart = INSTR(elements(e).y, "(")
+        Rend = INSTR(elements(e).y, ")")
+        referredElement$ = MID$(elements(e).y, Rstart + 1, Rend - Rstart - 1)
+        refID = getElementID(referredElement$)
+        if refID then
+            getEYPos$ = getEYPos$(refID, currentfont)
+        end if
     ELSE
         getEYPos$ = elements(e).y
     END IF
@@ -1176,6 +1195,24 @@ FUNCTION getEWidth$ (e AS INTEGER, currentfont AS LONG)
         END IF
     ELSEIF elements(e).w = "full" THEN
         getEWidth$ = LST$(_WIDTH(0) - VAL(getEXPos$(e, currentfont)) - global.margin)
+    ELSEIF INSTR(elements(e).w, "/m") THEN ' REPLACE WITH MATH PARSER
+        firstpart$ = MID$(elements(e).w, 1, INSTR(elements(e).w, "/m") - 1)
+        secondpart$ = MID$(elements(e).w, INSTR(elements(e).w, "/m") + 2, LEN(elements(e).w))
+        relation = VAL(firstpart$) / VAL(secondpart$)
+        getEWidth$ = LST$((relation * _WIDTH(0)) - (global.margin * 3))
+    ELSEIF INSTR(elements(e).w, "/") THEN ' REPLACE WITH MATH PARSER
+        firstpart$ = MID$(elements(e).w, 1, INSTR(elements(e).w, "/") - 1)
+        secondpart$ = MID$(elements(e).w, INSTR(elements(e).w, "/") + 1, LEN(elements(e).w))
+        relation = VAL(firstpart$) / VAL(secondpart$)
+        getEWidth$ = LST$(relation * _WIDTH(0))
+    ELSEIF INSTR(elements(e).w, "(") then
+        Rstart = INSTR(elements(e).w, "(")
+        Rend = INSTR(elements(e).w, ")")
+        referredElement$ = MID$(elements(e).w, Rstart + 1, Rend - Rstart - 1)
+        refID = getElementID(referredElement$)
+        if refID then
+            getEWidth$ = getEWidth$(refID, currentfont)
+        end if
     ELSE
         getEWidth$ = elements(e).w
     END IF
@@ -1192,10 +1229,30 @@ FUNCTION getEHeight$ (e AS INTEGER, currentfont AS LONG)
         getEHeight$ = LST$(_FONTHEIGHT(font_normal) + (2 * global.padding))
     ELSEIF (elements(e).h = "nextt" OR elements(e).h = "next.top" OR elements(e).h = "nt") AND e < UBOUND(elements) THEN
         getEHeight$ = LST$(VAL(getEYPos$(e + 1, currentfont)) - (2 * global.margin) - VAL(getEYPos$(e, currentfont)))
+    ELSEIF INSTR(elements(e).h, "/") THEN
+        firstpart$ = MID$(elements(e).h, 1, INSTR(elements(e).h, "/") - 1)
+        secondpart$ = MID$(elements(e).h, INSTR(elements(e).h, "/") + 1, LEN(elements(e).h))
+        relation = VAL(firstpart$) / VAL(secondpart$)
+        getEHeight$ = LST$(relation * _WIDTH(0))
+    ELSEIF INSTR(elements(e).h, "(") then
+        Rstart = INSTR(elements(e).h, "(")
+        Rend = INSTR(elements(e).h, ")")
+        referredElement$ = MID$(elements(e).h, Rstart + 1, Rend - Rstart - 1)
+        refID = getElementID(referredElement$)
+        if refID then
+            getEHeight$ = getEHeight$(refID, currentfont)
+        end if
     ELSE
         getEHeight$ = elements(e).h
     END IF
 END FUNCTION
+
+function getElementID (eName as string)
+    if ubound(elements) = 0 then exit function
+    do: i = i + 1
+        if elements(i).name = eName then getElementID = i: exit function
+    loop until i = ubound(elements)
+end function
 
 FUNCTION getEPadding$ (e AS INTEGER)
     IF elements(e).padding = "" THEN

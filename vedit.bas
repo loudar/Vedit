@@ -1,4 +1,5 @@
-CLS: CLOSE
+'CLS: CLOSE
+_ACCEPTFILEDROP ON
 $RESIZE:ON
 REM $DYNAMIC
 
@@ -12,6 +13,7 @@ TYPE layerInfo
     AS DOUBLE x, y, w, h
     AS STRING type, name
     AS INTEGER contentid
+    enabled AS _BYTE 'if visible or not
 END TYPE
 REDIM SHARED layerInfo(0) AS layerInfo
 
@@ -31,16 +33,13 @@ REDIM SHARED file AS fileInfo
 ' Layer types
 ' Image layer
 TYPE imageLayer
-    i AS LONG 'image handle
+    img AS LONG 'image handle
     file AS STRING * 500 'file location
     name AS STRING * 50
     ar AS _FLOAT 'aspect ratio
     t AS INTEGER 'transparency (0-255)
-    x AS _FLOAT 'x position
-    y AS _FLOAT 'y position
     w AS _FLOAT 'width
     h AS _FLOAT 'height
-    enabled AS _BYTE 'if visible or not
 END TYPE
 REDIM SHARED imageLayer(0) AS imageLayer
 REDIM SHARED layerbuffer AS imageLayer
@@ -280,14 +279,14 @@ SUB addstrarray (array() AS STRING, content AS STRING)
     array(UBOUND(array)) = content
 END SUB
 
-SUB newFile (filePath AS STRING, fileName AS STRING, width AS INTEGER, height AS INTEGER, activeLayer AS INTEGER, xOff AS DOUBLE, yOff AS DOUBLE, zoom AS DOUBLE)
-    REDIM _PRESERVE file AS fileInfo
+SUB newFile (filePath AS STRING, fileName AS STRING, w AS INTEGER, h AS INTEGER, activeLayer AS INTEGER, xOff AS DOUBLE, yOff AS DOUBLE, zoom AS DOUBLE)
+    'REDIM _PRESERVE file AS fileInfo
     REDIM _PRESERVE layerInfo(0) AS layerInfo
 
     file.file = filePath
     file.name = fileName
-    file.w = width
-    file.h = height
+    file.w = w
+    file.h = h
     file.activeLayer = activeLayer
     file.xOffset = xOff
     file.yOffset = yOff
@@ -326,41 +325,46 @@ SUB fileDropCheck
             END IF
             SELECT CASE droptype$
                 CASE "file"
-                    'IF MID$(df$, LEN(df$) - 3, 4) = ".png" OR MID$(df$, LEN(df$) - 3, 4) = ".jpg" THEN
-                    '    IF img < 0 THEN _FREEIMAGE img
-                    '    img = _LOADIMAGE(df$, 32)
-                    '    ar = _WIDTH(img) / _HEIGHT(img)
-                    '    IF ar = artboard(af, artboard).ar THEN
-                    '        w = artboard(af, artboard).w
-                    '        h = artboard(af, artboard).h
-                    '        x = 0
-                    '        y = 0
-                    '    ELSEIF ar > artboard(af, artboard).ar THEN 'if new layer is wider than artboard
-                    '        w = artboard(af, artboard).w
-                    '        h = w / ar
-                    '        x = 0
-                    '        y = (artboard(af, artboard).h - _HEIGHT(img)) / 2
-                    '    ELSEIF ar < artboard(af, artboard).ar THEN 'if new layer is taller than artboard
-                    '        h = artboard(af, artboard).h
-                    '        w = h * ar
-                    '        x = (artboard(af, artboard).w - _WIDTH(img)) / 2
-                    '        y = 0
-                    '    END IF
-                    '    p = 0: DO: p = p + 1
-                    '    LOOP UNTIL p = LEN(df$) OR MID$(df$, LEN(df$) + 1 - p, 1) = "\"
-                    '    n = LEN(df$) - p + 2
-                    '    nl = LEN(df$) - n - 3
-                    '    addlayer MID$(df$, n, nl), df$, ar, 255, x, y, w, h, artboard
-                    '    activelayer = UBOUND(ilayer, 2)
-                    '    drawgraphics 1
-                    'END IF
+                    IF MID$(df$, LEN(df$) - 3, 4) = ".png" OR MID$(df$, LEN(df$) - 3, 4) = ".jpg" THEN
+                        IF img < 0 THEN _FREEIMAGE img
+                        img = _LOADIMAGE(df$, 32)
+                        ar = _WIDTH(img) / _HEIGHT(img)
+                        filear = file.w / file.h
+                        'IF ar = filear THEN
+                        '    w = file.w
+                        '    h = file.h
+                        '    x = 0
+                        '    y = 0
+                        'ELSEIF ar > filear THEN 'if new layer is wider than artboard
+                        '    w = file.w
+                        '    h = w / ar
+                        '    x = 0
+                        '    y = (file.h - _HEIGHT(img)) / 2
+                        'ELSEIF ar < filear THEN 'if new layer is taller than artboard
+                        '    h = file.h
+                        '    w = h * ar
+                        '    x = (file.w - _WIDTH(img)) / 2
+                        '    y = 0
+                        'ELSE
+                        w = _WIDTH(img)
+                        h = _HEIGHT(img)
+                        x = 0
+                        y = 0
+                        'END IF
+                        p = 0: DO: p = p + 1
+                        LOOP UNTIL p = LEN(df$) OR MID$(df$, LEN(df$) + 1 - p, 1) = "\"
+                        n = LEN(df$) - p + 2
+                        nl = LEN(df$) - n - 3
+                        createLayer MID$(df$, n, nl), x, y, w, h, "image", UBOUND(imageLayer) + 1, df$
+                        _FREEIMAGE img
+                    END IF
             END SELECT
         LOOP UNTIL _TOTALDROPPEDFILES = 0
         _FINISHDROP
     END IF
 END SUB
 
-SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS INTEGER, layerType AS STRING, contentid AS INTEGER, sourcefile AS STRING)
+SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS INTEGER, layerType AS STRING, contentid AS INTEGER, sourceFile AS STRING)
     REDIM _PRESERVE layerInfo(UBOUND(layerInfo) + 1) AS layerInfo
     layerId = UBOUND(layerInfo)
     layerInfo(layerId).name = layname
@@ -370,6 +374,7 @@ SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS
     layerInfo(layerId).h = h
     layerInfo(layerId).type = layerType
     layerInfo(layerId).contentid = contentid
+    layerInfo(layerId).enabled = -1
     file.activeLayer = layerId
     SELECT CASE layerType
         CASE "vector"
@@ -377,7 +382,11 @@ SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS
             REDIM _PRESERVE vectorPreview(UBOUND(vectorPreview) + 1) AS vectorPreview
         CASE "image"
             REDIM _PRESERVE imageLayer(UBOUND(imageLayer) + 1) AS imageLayer
-            imageLayer(UBOUND(imageLayer)).file = sourcefile
+            ID = UBOUND(imageLayer)
+            imageLayer(ID).file = sourceFile
+            imageLayer(ID).img = _LOADIMAGE(sourceFile, 32)
+            imageLayer(ID).w = w
+            imageLayer(ID).h = h
     END SELECT
 END SUB
 
@@ -412,7 +421,7 @@ SUB displayText
     '_PRINTSTRING (getColumn(1), getRow(5)), "Delete point: [CTRL] + [Left Mouse]"
     '_PRINTSTRING (getColumn(1), getRow(6)), "Move point:   [Left Mouse] + Drag"
     '_PRINTSTRING (getColumn(1), getRow(7)), "Move handle:  [Right Mouse] + Drag"
-    'PRINT UBOUND(vectorPoints); " points", UBOUND(layerinfo); " layers"
+    'PRINT file.zoom; " zoom"
     'PRINT roundsSinceEdit; " rounds since edit"
     'PRINT _KEYDOWN(100306), mouse.x, mouse.y, mouse.left, mouse.right, mouse.middle, mouse.middlerelease, mouse.lefttimedif
 END SUB
@@ -426,17 +435,52 @@ FUNCTION getColumn (column AS _INTEGER64)
 END FUNCTION
 
 SUB displayLayers (coord AS rectangle)
+    LINE (coord.x, coord.y)-(coord.x + (coord.w * file.zoom), coord.y + (coord.h * file.zoom)), _RGBA(150, 150, 150, 255), BF
     IF UBOUND(layerInfo) < 1 THEN EXIT SUB
     layer = 0: DO: layer = layer + 1
         IF layer = file.activeLayer THEN layerIsActive = -1 ELSE layerIsActive = 0
         SELECT CASE layerInfo(layer).type
             CASE "vector"
-                displayLines layerInfo(layer).contentid, layerIsActive, coord
+                displayLines layerInfo(layer), layerIsActive, coord
                 IF layerIsActive THEN
                     displayPoints layerInfo(layer).contentid, coord
                 END IF
+            CASE "image"
+                displayImageLayer layerInfo(layer), layerIsActive, coord
         END SELECT
     LOOP UNTIL layer = UBOUND(layerInfo)
+END SUB
+
+SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, coord AS rectangle)
+    contentid = layer.contentid
+    x = coord.x + layer.x + file.xOffset
+    y = coord.y + layer.y + file.yOffset
+    w = x + layer.w * file.zoom
+    h = y + layer.h * file.zoom
+    'PRINT coord.y, layer.y, file.yOffset, y
+    '_DISPLAY
+    'SLEEP
+    IF imageLayer(contentid).img > -2 THEN
+        imageLayer(contentid).img = _LOADIMAGE(imageLayer(contentid).file, 32)
+        imageLayer(contentid).w = _WIDTH(imageLayer(contentid).img)
+        imageLayer(contentid).h = _HEIGHT(imageLayer(contentid).img)
+        layer.w = imageLayer(contentid).w
+        layer.h = imageLayer(contentid).h
+    END IF
+    _PUTIMAGE (x, y)-(w, h), imageLayer(contentid).img
+    IF layerIsActive THEN
+        displayLayerOutline x, y, w, h
+    END IF
+END SUB
+
+SUB displayLayerOutline (x, y, w, h)
+    LINE (x, y)-(w, h), _RGBA(72, 144, 255, 255), B
+    handleSize = 5
+    coordCorr = handleSize / 2
+    LINE (x - coordCorr, y - coordCorr)-(x + coordCorr, y + coordCorr), _RGBA(72, 144, 255, 255), BF
+    LINE (w - coordCorr, y - coordCorr)-(w + coordCorr, y + coordCorr), _RGBA(72, 144, 255, 255), BF
+    LINE (x - coordCorr, h - coordCorr)-(x + coordCorr, h + coordCorr), _RGBA(72, 144, 255, 255), BF
+    LINE (w - coordCorr, h - coordCorr)-(w + coordCorr, h + coordCorr), _RGBA(72, 144, 255, 255), BF
 END SUB
 
 FUNCTION vectorPreviewGenerated (contentid AS INTEGER, layerIsActive AS _BYTE)
@@ -451,10 +495,12 @@ END FUNCTION
 
 SUB displayVectorPreview (contentid AS INTEGER)
     _PUTIMAGE (0, 0)-(_WIDTH(vectorPreview(contentid).image), _HEIGHT(vectorPreview(contentid).image)), vectorPreview(contentid).image, 0
+
     'LINE (1, 1)-(_WIDTH(vectorPreview(contentid).image) - 1, _HEIGHT(vectorPreview(contentid).image) - 1), _RGBA(0, 255, 0, 255), B
 END SUB
 
-SUB generateVectorPreview (contentid AS INTEGER, maxpoints AS INTEGER, roundFactor, coord AS rectangle)
+SUB generateVectorPreview (layer AS layerInfo, maxpoints AS INTEGER, roundFactor, coord AS rectangle)
+    contentid = layer.contentid
     IF vectorPreview(contentid).image < -1 THEN _FREEIMAGE vectorPreview(contentid).image
     vectorPreview(contentid).image = _NEWIMAGE(_WIDTH, _HEIGHT, 32)
     _DEST vectorPreview(contentid).image
@@ -506,6 +552,8 @@ SUB generateVectorPreview (contentid AS INTEGER, maxpoints AS INTEGER, roundFact
             'PSET (vectorPoints(contentid, i).x + bVecX * (s / sampleCount), vectorPoints(contentid, i).y + bVecY * (s / sampleCount)), _RGBA(255, 255, 255, 20)
             fx = vectorPoints(contentid, i).x + pX
             fy = vectorPoints(contentid, i).y + pY
+            fx = layer.x + (fx * file.zoom)
+
             IF fx > coord.x AND fx < coord.x + coord.w AND fy > coord.y AND fy < coord.y + coord.h THEN
                 PSET (fx, fy), _RGBA(255, 255, 255, 255)
             END IF
@@ -515,26 +563,27 @@ SUB generateVectorPreview (contentid AS INTEGER, maxpoints AS INTEGER, roundFact
     displayVectorPreview contentid
 END SUB
 
-SUB displayLines (contentid AS INTEGER, layerIsActive AS _BYTE, coord AS rectangle)
+SUB displayLines (layer AS layerInfo, layerIsActive AS _BYTE, coord AS rectangle)
+    contentid = layer.contentid
     maxPoints = getMaxPoints(contentid)
     IF maxPoints < 2 THEN EXIT SUB
 
     roundFactor = getDownSamplingFactor(roundsSinceEdit, 10)
 
     IF mouse.noMovement >= mouse.movementTimer AND vectorPreview(contentid).mouseStatus = 1 THEN
-        generateVectorPreview contentid, maxPoints, roundFactor, coord
+        generateVectorPreview layer, maxPoints, roundFactor, coord
         vectorPreview(contentid).status = 1 + layerIsActive
         EXIT SUB
     ELSEIF roundFactor = 1 THEN
         IF vectorPreviewGenerated(contentid, layerIsActive) THEN
             displayVectorPreview contentid
         ELSE
-            generateVectorPreview contentid, maxPoints, 1, coord
+            generateVectorPreview layer, maxPoints, 1, coord
             vectorPreview(contentid).status = 1 + layerIsActive
         END IF
         EXIT SUB
     ELSE
-        generateVectorPreview contentid, maxPoints, roundFactor, coord
+        generateVectorPreview layer, maxPoints, roundFactor, coord
         vectorPreview(contentid).status = 0
     END IF
 END SUB
