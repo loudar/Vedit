@@ -293,26 +293,6 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
     displaySelection this, elementindex, coord, currentfont
 END SUB
 
-SUB displayList (coord as rectangle, content as string)
-    redim text as string
-    margin = 5
-    lineheight = _fontheight * 1.6
-    select case content
-        case "layers"
-            do: i = i + 1
-                x = coord.x + margin
-                w = coord.w - (margin * 2)
-                text = layerInfo(i).name
-                if len(text) * _fontwidth >= w then
-                    cutlength = int(w / _fontwidth)
-                    text = mid$(text, 1, cutlength - 3) + "..."
-                end if
-                y = coord.y + margin + (lineheight * (i - 1))
-                _PRINTSTRING (x, y), text
-            loop until i = ubound(layerInfo)
-    end select
-END SUB
-
 SUB displayElement (elementindex AS INTEGER, keyhit AS INTEGER) 'parses abstract coordinates into discrete coordinates
     DIM this AS element
     DIM bufferchar AS STRING
