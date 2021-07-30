@@ -1,4 +1,4 @@
-'CLS: CLOSE
+CLS: CLOSE
 _ACCEPTFILEDROP ON
 $RESIZE:ON
 REM $DYNAMIC
@@ -37,9 +37,7 @@ TYPE imageLayer
     file AS STRING * 500 'file location
     name AS STRING * 50
     ar AS _FLOAT 'aspect ratio
-    t AS INTEGER 'transparency (0-255)
-    w AS _FLOAT 'width
-    h AS _FLOAT 'height
+    AS _INTEGER64 w, h, t
 END TYPE
 REDIM SHARED imageLayer(0) AS imageLayer
 REDIM SHARED layerbuffer AS imageLayer
@@ -139,17 +137,21 @@ END SUB
 SUB writeVFI (targetFile AS STRING)
     file.file = targetFile
     freen = FREEFILE
-    OPEN targetFile FOR OUTPUT AS #freen
-    info$ = "type=fileInfo;width=" + LST$(file.w) + ";height=" + LST$(file.h) + ";zoom=" + LST$(file.zoom) + ";xOffset=" + LST$(file.xOffset) + ";yOffset=" + LST$(file.yOffset) + ";activeLayer=" + LST$(file.activeLayer) + ";name=" + file.name + ";file=" + targetFile
-    PRINT #freen, info$
+    'OPEN targetFile FOR OUTPUT AS #freen
+    OPEN targetFile FOR BINARY AS #freen
+    info$ = "type=fileInfo;width=" + LST$(file.w) + ";height=" + LST$(file.h) + ";zoom=" + LST$(file.zoom) + ";xOffset=" + LST$(file.xOffset) + ";yOffset=" + LST$(file.yOffset) + ";activeLayer=" + LST$(file.activeLayer) + ";name=" + file.name + ";file=" + targetFile + CHR$(13)
+    'PRINT #freen, info$
+    PUT #freen, , info$
     IF UBOUND(layerinfo) > 0 THEN
         i = 0: DO: i = i + 1
             IF layerInfo(i).type = "image" THEN
-                info$ = "type=layerInfo;layert=image;width=" + LST$(layerInfo(i).w) + ";height=" + LST$(layerInfo(i).h) + ";x=" + LST$(layerInfo(i).x) + ";y=" + LST$(layerInfo(i).y) + ";name=" + layerInfo(i).name + ";contentid=" + LST$(layerInfo(i).contentid) + ";file=" + imageLayer(layerInfo(i).contentid).file
-                PRINT #freen, info$
+                info$ = "type=layerInfo;layert=image;width=" + LST$(layerInfo(i).w) + ";height=" + LST$(layerInfo(i).h) + ";x=" + LST$(layerInfo(i).x) + ";y=" + LST$(layerInfo(i).y) + ";name=" + layerInfo(i).name + ";contentid=" + LST$(layerInfo(i).contentid) + ";file=" + _TRIM$(imageLayer(layerInfo(i).contentid).file) + CHR$(13)
+                'PRINT #freen, info$
+                PUT #freen, , info$
             ELSE
-                info$ = "type=layerInfo;layert=vector;width=" + LST$(layerInfo(i).w) + ";height=" + LST$(layerInfo(i).h) + ";x=" + LST$(layerInfo(i).x) + ";y=" + LST$(layerInfo(i).y) + ";name=" + layerInfo(i).name + ";contentid=" + LST$(layerInfo(i).contentid)
-                PRINT #freen, info$
+                info$ = "type=layerInfo;layert=vector;width=" + LST$(layerInfo(i).w) + ";height=" + LST$(layerInfo(i).h) + ";x=" + LST$(layerInfo(i).x) + ";y=" + LST$(layerInfo(i).y) + ";name=" + layerInfo(i).name + ";contentid=" + LST$(layerInfo(i).contentid) + CHR$(13)
+                'PRINT #freen, info$
+                PUT #freen, , info$
             END IF
         LOOP UNTIL i = UBOUND(layerInfo)
     END IF
@@ -158,11 +160,33 @@ SUB writeVFI (targetFile AS STRING)
             maxPoints = getMaxPoints(i)
             IF maxPoints > 0 THEN
                 p = 0: DO: p = p + 1
-                    info$ = "type=vectorPoint;contentid=" + LST$(i) + ";x=" + LST$(vectorPoints(i, p).x) + ";y=" + LST$(vectorPoints(i, p).y) + ";handlex=" + LST$(vectorPoints(i, p).handlex) + ";handley=" + LST$(vectorPoints(i, p).handley)
-                    PRINT #freen, info$
+                    info$ = "type=vectorPoint;contentid=" + LST$(i) + ";x=" + LST$(vectorPoints(i, p).x) + ";y=" + LST$(vectorPoints(i, p).y) + ";handlex=" + LST$(vectorPoints(i, p).handlex) + ";handley=" + LST$(vectorPoints(i, p).handley) + CHR$(13)
+                    'PRINT #freen, info$
+                    PUT #freen, , info$
                 LOOP UNTIL p = UBOUND(vectorpoints, 2) OR p = maxPoints
             END IF
         LOOP UNTIL i = UBOUND(vectorPoints, 1)
+    END IF
+    IF UBOUND(imageLayer) > 0 THEN
+        i = 0: DO: i = i + 1
+            DIM AS _MEM m, m2
+            m = _MEMIMAGE(imageLayer(i).img)
+            raw$ = SPACE$(m.SIZE)
+            m2 = _MEM(_OFFSET(raw$), m.SIZE)
+            _MEMCOPY m, m.OFFSET, m.SIZE TO m2, m2.OFFSET
+
+            'Compress the data
+            compressed$ = _DEFLATE$(raw$) + CHR$(13)
+
+            ' Write info about image
+            imageInfo$ = "type=imageData;length=" + LST$(LEN(compressed$) - 1) + ";size=" + LST$(LEN(raw$)) + ";contentid=" + LST$(i) + ";w=" + LST$(_WIDTH(imageLayer(i).img)) + ";h=" + LST$(_HEIGHT(imageLayer(i).img)) + CHR$(13)
+            PUT #freen, , imageInfo$
+
+            'Write image data
+            PUT #freen, , compressed$
+            _MEMFREE m
+            _MEMFREE m2
+        LOOP UNTIL i = UBOUND(imageLayer)
     END IF
     CLOSE #freen
 END SUB
@@ -172,19 +196,23 @@ SUB loadVFI (sourceFile AS STRING)
     REDIM _PRESERVE imageLayer(0) AS imageLayer
     REDIM _PRESERVE vectorPoints(0, 0) AS vectorPoint
     REDIM _PRESERVE vectorPreview(0) AS vectorPreview
+    REDIM position AS _INTEGER64
 
+    COLOR _RGBA(255, 255, 255, 255), _RGBA(0, 0, 0, 255)
+    _PRINTSTRING (getColumn(10), getRow(1)), "Opening file " + sourceFile + "...": _DISPLAY
     freen = FREEFILE
     OPEN sourceFile FOR INPUT AS #freen
     IF EOF(freen) = 0 THEN
         DO
             LINE INPUT #freen, lineinfo$
-            parseFileInfo lineinfo$
+            position = SEEK(freen)
+            parseFileInfo lineinfo$, sourceFile, position
         LOOP UNTIL EOF(freen) = -1
     END IF
     CLOSE #freen
 END SUB
 
-SUB parseFileInfo (source AS STRING)
+SUB parseFileInfo (source AS STRING, sourceFile AS STRING, position AS _INTEGER64)
     REDIM attributes(0) AS STRING
     REDIM AS STRING attribute, value
     createAttributearray source, attributes()
@@ -192,6 +220,7 @@ SUB parseFileInfo (source AS STRING)
         parseAttributeValue attributes(1), attribute, value
         SELECT CASE value
             CASE "fileInfo"
+                _PRINTSTRING (getColumn(10), getRow(3)), "Loading file info...": _DISPLAY
                 i = 1: DO: i = i + 1
                     parseAttributeValue attributes(i), attribute, value
                     SELECT CASE attribute
@@ -214,6 +243,7 @@ SUB parseFileInfo (source AS STRING)
                     END SELECT
                 LOOP UNTIL i = UBOUND(attributes)
             CASE "layerInfo"
+                _PRINTSTRING (getColumn(10), getRow(3)), "Loading layer info...": _DISPLAY
                 i = 1: DO: i = i + 1
                     parseAttributeValue attributes(i), attribute, value
                     SELECT CASE attribute
@@ -239,6 +269,7 @@ SUB parseFileInfo (source AS STRING)
                 LOOP UNTIL i = UBOUND(attributes)
                 createLayer layname$, x, y, w, h, layertype$, contentid, file$
             CASE "vectorPoint"
+                _PRINTSTRING (getColumn(10), getRow(3)), "Loading vector data...": _DISPLAY
                 i = 1: DO: i = i + 1
                     parseAttributeValue attributes(i), attribute, value
                     SELECT CASE attribute
@@ -255,6 +286,42 @@ SUB parseFileInfo (source AS STRING)
                     END SELECT
                 LOOP UNTIL i = UBOUND(attributes)
                 createPoint x, y, handlex, handley, contentid
+            CASE "imageData"
+                _PRINTSTRING (getColumn(10), getRow(3)), "Loading image data...": _DISPLAY
+                i = 1: DO: i = i + 1
+                    parseAttributeValue attributes(i), attribute, value
+                    SELECT CASE attribute
+                        CASE "length"
+                            length = VAL(value)
+                        CASE "w"
+                            w = VAL(value)
+                        CASE "h"
+                            h = VAL(value)
+                        CASE "contentid"
+                            contentid = VAL(value)
+                        CASE "size"
+                            size = VAL(value)
+                    END SELECT
+                LOOP UNTIL i = UBOUND(attributes)
+                IF length > 0 AND contentid > 0 AND contentid <= UBOUND(imageLayer) THEN
+                    freen = FREEFILE
+                    OPEN sourceFile FOR BINARY AS #freen
+                    imageDataCompressed$ = SPACE$(length)
+                    IF NOT EOF(freen) THEN GET #freen, position, imageDataCompressed$
+                    position = SEEK(freen)
+                    CLOSE #freen
+                    IF imageDataCompressed$ <> SPACE$(length) THEN
+                        imageDataRaw$ = _INFLATE$(imageDataCompressed$, size)
+                        REDIM AS _MEM m, m2
+                        imageLayer(contentid).img = _NEWIMAGE(w, h, 32)
+                        imageLayer(contentid).w = w
+                        imageLayer(contentid).h = h
+                        m = _MEMIMAGE(imageLayer(contentid).img)
+                        m2 = _MEM(_OFFSET(imageDataRaw$), m.SIZE)
+                        _MEMCOPY m2, m2.OFFSET, m2.SIZE TO m, m.OFFSET
+                        _MEMFREE m2
+                    END IF
+                END IF
         END SELECT
     END IF
 END SUB
@@ -386,8 +453,8 @@ SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS
             REDIM _PRESERVE vectorPoints(UBOUND(vectorPoints, 1) + 1, UBOUND(vectorPoints, 2)) AS vectorPoint
             REDIM _PRESERVE vectorPreview(UBOUND(vectorPreview) + 1) AS vectorPreview
         CASE "image"
-            REDIM _PRESERVE imageLayer(UBOUND(imageLayer) + 1) AS imageLayer
-            ID = UBOUND(imageLayer)
+            IF contentid > UBOUND(imageLayer) THEN REDIM _PRESERVE imageLayer(contentid) AS imageLayer
+            ID = contentid
             imageLayer(ID).file = sourceFile
             imageLayer(ID).img = _LOADIMAGE(sourceFile, 32)
             imageLayer(ID).w = w
@@ -545,11 +612,12 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
         moveLayerCorner layer, 4, layerID
         blockMove = -1
     END IF
-    IF clickCondition("moveImage", 0, 0, coord) AND layerIsActive AND NOT blockMove THEN
+    IF (clickCondition("moveImage", 0, 0, coord) AND layerIsActive AND NOT blockMove) OR (currentImage.ID = layerID AND currentImage.corner = 5 AND mouse.left) THEN
         IF currentImage.xOff = -1 AND currentImage.yOff = -1 THEN
             currentImage.xOff = mouse.x - layer.x
             currentImage.yOff = mouse.y - layer.y
             currentImage.corner = 5
+            currentImage.ID = layerID
         END IF
         layer.x = mouse.x - currentImage.xOff
         layer.y = mouse.y - currentImage.yOff
@@ -836,9 +904,9 @@ SUB createPoint (x AS INTEGER, y AS INTEGER, handlex AS INTEGER, handley AS INTE
 END SUB
 
 FUNCTION getMaxPoints (contentid AS INTEGER)
-    IF contentid > UBOUND(vectorPoints, 1) THEN getMaxPoints = 0
+    IF contentid > UBOUND(vectorPoints, 1) THEN getMaxPoints = 0: EXIT FUNCTION
     IF UBOUND(vectorPoints, 2) > 0 THEN
-        DO: i = i + 1
+        i = 0: DO: i = i + 1
             IF pointEmpty(vectorPoints(contentid, i)) THEN
                 getMaxPoints = i - 1 ' finds an empty spot before reaching the end
                 EXIT FUNCTION
@@ -890,6 +958,8 @@ FUNCTION clickCondition (conditionName AS STRING, x AS DOUBLE, y AS DOUBLE, coor
             CASE "moveImage"
                 IF mouse.left THEN clickCondition = -1 ELSE clickCondition = 0
         END SELECT
+    ELSE
+        clickCondition = 0
     END IF
 END FUNCTION
 
