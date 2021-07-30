@@ -3,6 +3,10 @@ type=text;x=margin;y=b;w=flex;h=25;color=ui;hovercolor=ui;name=time;style=bf;ang
 type=button;x=left;y=top;w=flex;h=25;color=ui;hovercolor=ui2;name=newfile;style=b;angle=0;text=New;action=new.file;hovertext=Creates a new file
 type=button;x=prevr;y=top;w=flex;h=25;color=ui;hovercolor=ui2;name=savefile;style=b;angle=0;text=Save;action=save.file;hovertext=Saves the current file
 type=button;x=prevr;y=top;w=flex;h=25;color=ui;hovercolor=ui2;name=savefile;style=b;angle=0;text=Open;action=open.file;hovertext=Opens a file
+type=text;x=left;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.x;text=X;hovertext=Current layer horizontal position
+type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.y;text=Y;hovertext=Current layer vertical position
+type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.w;text=W;hovertext=Current layer width
+type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.h;text=H;hovertext=Current layer height
 type=canvas;x=left;y=prevb;w=3/m4;h=nextt;color=ui;hovercolor=ui;name=canvas;angle=0;style=bf
 type=button;x=right;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=quit;style=b;angle=0;text=Quit;action=quit
 type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=back;style=b;angle=0;text=Back;action=view.main

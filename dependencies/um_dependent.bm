@@ -288,6 +288,7 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
         CASE "canvas"
             rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=bf;angle=0;round=0", _RGBA(0, 0,0, 255)
             rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=b;angle=0;round=0", this.drawcolor
+            adjustZoom coord
             displayLayers coord
     END SELECT
     displaySelection this, elementindex, coord, currentfont

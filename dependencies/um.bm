@@ -681,6 +681,14 @@ SUB checkForSpecialText (this AS element)
             this.buffer = DATE$
         CASE "transmit"
             this.buffer = transmittedtext
+        CASE "layer.x"
+            this.buffer = LST$(layerInfo(file.activeLayer).x)
+        CASE "layer.y"
+            this.buffer = LST$(layerInfo(file.activeLayer).y)
+        CASE "layer.w"
+            this.buffer = LST$(layerInfo(file.activeLayer).w)
+        CASE "layer.h"
+            this.buffer = LST$(layerInfo(file.activeLayer).h)
     END SELECT
 END SUB
 
@@ -1077,6 +1085,10 @@ FUNCTION shiftDown
     IF _KEYDOWN(100303) OR _KEYDOWN(100304) THEN shiftDown = -1 ELSE shiftDown = 0
 END FUNCTION
 
+FUNCTION altDown
+    IF _KEYDOWN(100308) or _keydown(100307) then altDown = -1 else altDown = 0
+end function
+
 FUNCTION switchWord$ (word AS STRING, state AS _BYTE)
     IF word = "" THEN switchWord$ = "": EXIT FUNCTION
     DIM AS STRING state1, state2
@@ -1228,7 +1240,7 @@ FUNCTION getEHeight$ (e AS INTEGER, currentfont AS LONG)
     IF elements(e).h = "0" THEN
         getEHeight$ = LST$(_FONTHEIGHT(font_normal) + (2 * global.padding))
     ELSEIF (elements(e).h = "nextt" OR elements(e).h = "next.top" OR elements(e).h = "nt") AND e < UBOUND(elements) THEN
-        getEHeight$ = LST$(VAL(getEYPos$(e + 1, currentfont)) - (2 * global.margin) - VAL(getEYPos$(e, currentfont)))
+        getEHeight$ = LST$(VAL(getEYPos$(e + 1, currentfont)) - (global.margin) - VAL(getEYPos$(e, currentfont)))
     ELSEIF INSTR(elements(e).h, "/") THEN
         firstpart$ = MID$(elements(e).h, 1, INSTR(elements(e).h, "/") - 1)
         secondpart$ = MID$(elements(e).h, INSTR(elements(e).h, "/") + 1, LEN(elements(e).h))

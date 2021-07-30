@@ -114,6 +114,22 @@ DO
 LOOP UNTIL mainexit = -1 OR restart = -1
 IF restart = -1 THEN GOTO start
 
+SUB adjustZoom (coord AS rectangle)
+    IF mouse.scroll < 0 THEN
+        IF altDown THEN
+            file.xOffset = file.xOffset - (((file.w * file.zoom) - ((mouse.x - coord.x) - (file.xOffset - (file.w * file.zoom)))) * (-0.1))
+            file.yOffset = file.yOffset - (((file.h * file.zoom) - ((mouse.y - coord.y) - (file.yOffset - (file.h * file.zoom)))) * (-0.1))
+        END IF
+        file.zoom = file.zoom * 1.1
+    ELSEIF mouse.scroll > 0 THEN
+        IF altDown THEN
+            file.xOffset = file.xOffset + (((file.w * file.zoom) - ((mouse.x - coord.x) - (file.xOffset - (file.w * file.zoom)))) * (-0.1))
+            file.yOffset = file.yOffset + (((file.h * file.zoom) - ((mouse.y - coord.y) - (file.yOffset - (file.h * file.zoom)))) * (-0.1))
+        END IF
+        file.zoom = file.zoom / 11 * 10
+    END IF
+END SUB
+
 SUB saveFileDialog
     filter$ = "VFI (*.vfi)|*.VFI" + CHR$(0)
     'filter$ = "VFI (*.vfi)|*.VFI|PNG (*.png)|*.PNG|JPG/JPEG (*.jpeg)|*.JPEG" + CHR$(0)
@@ -135,7 +151,9 @@ SUB saveFile (targetFile AS STRING)
         CASE ".vfi"
             writeVFI targetFile$
         CASE ".png"
+
         CASE ".jpeg"
+
     END SELECT
 END SUB
 
@@ -513,7 +531,10 @@ FUNCTION getColumn (column AS _INTEGER64)
 END FUNCTION
 
 SUB displayLayers (coord AS rectangle)
-    LINE (coord.x, coord.y)-(coord.x + (coord.w * file.zoom), coord.y + (coord.h * file.zoom)), _RGBA(150, 150, 150, 255), BF
+    REDIM canvasImg AS LONG
+    canvasImg = _NEWIMAGE(coord.w, coord.h, 32)
+    _DEST canvasImg
+    LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), _RGBA(150, 150, 150, 255), BF
     IF UBOUND(layerInfo) < 1 THEN EXIT SUB
     layer = 0: DO: layer = layer + 1
         IF layer = file.activeLayer THEN layerIsActive = -1 ELSE layerIsActive = 0
@@ -533,10 +554,12 @@ SUB displayLayers (coord AS rectangle)
                 IF layerIsActive AND keyhit = 21248 THEN
                     deleteLayer layer
                 ELSE
-                    IF layerInfo(layer).enabled THEN displayImageLayer layerInfo(layer), layerIsActive, coord, layer
+                    IF layerInfo(layer).enabled THEN displayImageLayer layerInfo(layer), layerIsActive, layer, coord
                 END IF
         END SELECT
     LOOP UNTIL layer >= UBOUND(layerInfo)
+    _DEST 0
+    _PUTIMAGE (coord.x, coord.y)-(coord.x + coord.w, coord.y + coord.h), canvasImg
 END SUB
 
 SUB deleteLayer (layerID AS INTEGER)
@@ -572,11 +595,11 @@ SUB deleteImageLayer (contentID AS INTEGER)
     imageLayer(contentID) = imageLayer(0)
 END SUB
 
-SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, coord AS rectangle, layerID AS INTEGER)
+SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS INTEGER, canvas AS rectangle)
     contentid = layer.contentid
     REDIM layerCoord AS rectangle
-    layerCoord.x = coord.x + layer.x + file.xOffset
-    layerCoord.y = coord.y + layer.y + file.yOffset
+    layerCoord.x = (layer.x * file.zoom) + file.xOffset
+    layerCoord.y = (layer.y * file.zoom) + file.yOffset
     layerCoord.w = layerCoord.x + layer.w * file.zoom
     layerCoord.h = layerCoord.y + layer.h * file.zoom
     IF imageLayer(contentid).img > -2 THEN
@@ -588,11 +611,11 @@ SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, coord AS rect
     END IF
     _PUTIMAGE (layerCoord.x, layerCoord.y)-(layerCoord.w, layerCoord.h), imageLayer(contentid).img
     IF layerIsActive THEN
-        displayLayerOutline layerCoord, layer, layerIsActive, layerID
+        displayLayerOutline layerCoord, layer, layerIsActive, layerID, canvas
     END IF
 END SUB
 
-SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive AS _BYTE, layerID AS INTEGER)
+SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive AS _BYTE, layerID AS INTEGER, canvas AS rectangle)
     LINE (coord.x, coord.y)-(coord.w, coord.h), _RGBA(72, 144, 255, 255), B
     handleSize = 5
     coordCorr = INT((handleSize - 1) / 2)
@@ -622,13 +645,13 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
     END IF
     IF (clickCondition("moveImage", 0, 0, coord) AND layerIsActive AND NOT blockMove) OR (currentImage.ID = layerID AND currentImage.corner = 5 AND mouse.left) THEN
         IF currentImage.xOff = -1 AND currentImage.yOff = -1 THEN
-            currentImage.xOff = mouse.x - layer.x
-            currentImage.yOff = mouse.y - layer.y
+            currentImage.xOff = mouse.x - (file.xOffset + (layer.x * file.zoom) + canvas.x)
+            currentImage.yOff = mouse.y - (file.yOffset + (layer.y * file.zoom) + canvas.y)
             currentImage.corner = 5
             currentImage.ID = layerID
         END IF
-        layer.x = mouse.x - currentImage.xOff
-        layer.y = mouse.y - currentImage.yOff
+        layer.x = INT((mouse.x - (currentImage.xOff + file.xOffset + canvas.x)) * (1 / file.zoom))
+        layer.y = INT((mouse.y - (currentImage.yOff + file.yOffset + canvas.y)) * (1 / file.zoom))
     ELSE
         IF NOT blockMove THEN resetCurrentImage
     END IF
@@ -838,7 +861,7 @@ SUB displayList (coord AS rectangle, content AS STRING)
                     lcoord.w = coord.w - (margin * 5)
                     lcoord.h = lineheight
                     text = layerInfo(i).name
-                    viswidth = 20
+                    viswidth = 15
                     IF LEN(text) * _FONTWIDTH >= lcoord.w - viswidth THEN
                         cutlength = INT((lcoord.w - viswidth) / _FONTWIDTH)
                         text = MID$(text, 1, cutlength - 3) + "..."
