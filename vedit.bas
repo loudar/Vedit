@@ -41,7 +41,11 @@ TYPE imageLayer
     AS _INTEGER64 w, h, t
 END TYPE
 REDIM SHARED imageLayer(0) AS imageLayer
-REDIM SHARED layerbuffer AS imageLayer
+TYPE imageEffects
+    result AS LONG
+    contentid AS _INTEGER64
+    AS SINGLE brightness, contrast, r, g, b
+END TYPE
 TYPE currentImage
     AS INTEGER xOff, yOff, ID, corner
     AS rectangle coord
@@ -518,16 +522,18 @@ SUB displayLayers (coord AS rectangle)
                 IF layerIsActive AND keyhit = 21248 THEN
                     deleteLayer layer
                 ELSE
-                    displayLines layerInfo(layer), layerIsActive, coord
-                    IF layerIsActive THEN
-                        displayPoints layerInfo(layer).contentid, coord
+                    IF layerInfo(layer).enabled THEN
+                        displayLines layerInfo(layer), layerIsActive, coord
+                        IF layerIsActive THEN
+                            displayPoints layerInfo(layer).contentid, coord
+                        END IF
                     END IF
                 END IF
             CASE "image"
                 IF layerIsActive AND keyhit = 21248 THEN
                     deleteLayer layer
                 ELSE
-                    displayImageLayer layerInfo(layer), layerIsActive, coord, layer
+                    IF layerInfo(layer).enabled THEN displayImageLayer layerInfo(layer), layerIsActive, coord, layer
                 END IF
         END SELECT
     LOOP UNTIL layer >= UBOUND(layerInfo)
@@ -816,7 +822,7 @@ END FUNCTION
 
 SUB displayList (coord AS rectangle, content AS STRING)
     REDIM text AS STRING
-    REDIM AS rectangle mcoord, lcoord
+    REDIM AS rectangle mcoord, lcoord, viscoord
     mcoord.x = mouse.x
     mcoord.y = mouse.y
     mcoord.w = 0
@@ -832,16 +838,30 @@ SUB displayList (coord AS rectangle, content AS STRING)
                     lcoord.w = coord.w - (margin * 5)
                     lcoord.h = lineheight
                     text = layerInfo(i).name
-                    IF LEN(text) * _FONTWIDTH >= lcoord.w THEN
-                        cutlength = INT(lcoord.w / _FONTWIDTH)
+                    viswidth = 20
+                    IF LEN(text) * _FONTWIDTH >= lcoord.w - viswidth THEN
+                        cutlength = INT((lcoord.w - viswidth) / _FONTWIDTH)
                         text = MID$(text, 1, cutlength - 3) + "..."
                     END IF
 
                     IF i = file.activeLayer THEN
                         rectangle "x=" + LST$(lcoord.x - (global.margin / 2)) + ";y=" + LST$(lcoord.y - (global.margin / 2)) + ";w=" + LST$(lcoord.w + global.margin) + ";h=" + LST$(_FONTHEIGHT + global.margin) + ";style=bf;angle=0;round=" + LST$(global.round), col&("bg2")
                     END IF
+
+                    viscoord.x = lcoord.x - (global.margin / 2) + lcoord.w - viswidth
+                    viscoord.y = lcoord.y
+                    viscoord.w = viswidth
+                    viscoord.h = _FONTHEIGHT
+                    IF layerInfo(i).enabled THEN
+                        rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=bf;angle=0;round=" + LST$(global.round), col&("ui")
+                    ELSE
+                        rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=b;angle=0;round=" + LST$(global.round), col&("ui")
+                    END IF
                     _PRINTSTRING (lcoord.x, lcoord.y), text
-                    IF inBounds(mcoord, lcoord) AND mouse.left THEN
+
+                    IF inBounds(mcoord, viscoord) AND mouse.left AND mouse.lefttimedif > .1 THEN
+                        IF layerInfo(i).enabled = 0 THEN layerInfo(i).enabled = -1 ELSE layerInfo(i).enabled = 0
+                    ELSEIF inBounds(mcoord, lcoord) AND mouse.left THEN
                         'LINE (lcoord.x, lcoord.y)-(lcoord.x + lcoord.w, lcoord.y + lcoord.h), _RGBA(255, 0, 0, 255), B
                         file.activeLayer = i
                     END IF
