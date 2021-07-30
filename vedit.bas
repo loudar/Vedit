@@ -27,6 +27,7 @@ REDIM SHARED file AS fileInfo
 'UI
 '$INCLUDE: 'dependencies/um.bi'
 '$INCLUDE: 'dependencies/opensave.bi'
+'$INCLUDE: 'dependencies/saveimage.bi'
 
 '--------------------------------------------------------------------------------------------------------------------------------------'
 
@@ -459,7 +460,7 @@ SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS
             imageLayer(ID).img = _LOADIMAGE(sourceFile, 32)
             imageLayer(ID).w = w
             imageLayer(ID).h = h
-            ProcessRGBImage imageLayer(ID).img, 1, 0, 0
+            ProcessRGBImage imageLayer(ID).img, 1, 1, 1, 0.5
     END SELECT
 END SUB
 
@@ -702,15 +703,16 @@ SUB moveLayerCorner (layer AS layerInfo, corner AS _BYTE, layerID AS INTEGER)
     currentImage.coord.h = layer.h
 END SUB
 
-SUB ProcessRGBImage (Image AS LONG, R AS SINGLE, G AS SINGLE, B AS SINGLE)
+SUB ProcessRGBImage (Image AS LONG, R AS SINGLE, G AS SINGLE, B AS SINGLE, A AS SINGLE)
     IF R < 0 OR R > 1 OR G < 0 OR G > 1 OR B < 0 OR B > 1 OR _PIXELSIZE(Image) <> 4 THEN EXIT SUB
     DIM Buffer AS _MEM: Buffer = _MEMIMAGE(Image) 'Get a memory reference to our image
 
     'Used to avoid slow floating point calculations
-    DIM AS LONG R_Frac, G_Frac, B_Frac
+    DIM AS LONG R_Frac, G_Frac, B_Frac, A_Frac
     R_Frac = R * 65536
     G_Frac = G * 65536
     B_Frac = B * 65536
+    A_Frac = A * 65536
 
     DIM O AS _OFFSET, O_Last AS _OFFSET
     O = Buffer.OFFSET 'We start at this offset
@@ -721,6 +723,7 @@ SUB ProcessRGBImage (Image AS LONG, R AS SINGLE, G AS SINGLE, B AS SINGLE)
         _MEMPUT Buffer, O, (_MEMGET(Buffer, O, _UNSIGNED _BYTE) * B_Frac) \ 65536 AS _UNSIGNED _BYTE
         _MEMPUT Buffer, O + 1, (_MEMGET(Buffer, O + 1, _UNSIGNED _BYTE) * G_Frac) \ 65536 AS _UNSIGNED _BYTE
         _MEMPUT Buffer, O + 2, (_MEMGET(Buffer, O + 2, _UNSIGNED _BYTE) * R_Frac) \ 65536 AS _UNSIGNED _BYTE
+        _MEMPUT Buffer, O + 3, (_MEMGET(Buffer, O + 3, _UNSIGNED _BYTE) * A_Frac) \ 65536 AS _UNSIGNED _BYTE
         O = O + 4
     LOOP UNTIL O = O_Last
     'turn checking back on when done!
@@ -850,6 +853,7 @@ END SUB
 '--------------------------------------------------------------------------------------------------------------------------------------'
 
 '$INCLUDE: 'dependencies/VEvector.bm'
+'$INCLUDE: 'dependencies/saveimage.bm'
 '$INCLUDE: 'dependencies/opensave.bm'
 '$INCLUDE: 'dependencies/um.bm'
 '$INCLUDE: 'dependencies/um_dependent.bm'
