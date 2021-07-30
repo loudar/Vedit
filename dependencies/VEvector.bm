@@ -1,0 +1,214 @@
+FUNCTION vectorPreviewGenerated (contentid AS INTEGER, layerIsActive AS _BYTE)
+    IF (vectorPreview(contentid).status = 1 AND layerIsActive = 0) THEN
+        vectorPreviewGenerated = -1
+    ELSEIF (vectorPreview(contentid).status = 2 AND layerIsActive = 1) THEN
+        vectorPreviewGenerated = -1
+    ELSE
+        vectorPreviewGenerated = 0
+    END IF
+END FUNCTION
+
+SUB displayVectorPreview (contentid AS INTEGER)
+    _PUTIMAGE (0, 0)-(_WIDTH(vectorPreview(contentid).image), _HEIGHT(vectorPreview(contentid).image)), vectorPreview(contentid).image, 0
+END SUB
+
+SUB generateVectorPreview (layer AS layerInfo, maxpoints AS INTEGER, roundFactor, coord AS rectangle)
+    contentid = layer.contentid
+    IF vectorPreview(contentid).image < -1 THEN _FREEIMAGE vectorPreview(contentid).image
+    vectorPreview(contentid).image = _NEWIMAGE(_WIDTH, _HEIGHT, 32)
+    _DEST vectorPreview(contentid).image
+    DO: i = i + 1
+        IF mouse.noMovement < mouse.movementTimer AND layerIsActive THEN
+            LINE (vectorPoints(contentid, i).x, vectorPoints(contentid, i).y)-(vectorPoints(contentid, i + 1).x, vectorPoints(contentid, i + 1).y), _RGBA(255, 255, 255, 30) ' straight line
+            vectorPreview(contentid).mouseStatus = 1
+        ELSE
+            vectorPreview(contentid).mouseStatus = 0
+        END IF
+
+        ' create base vector between the two points
+        bVecX = vectorPoints(contentid, i + 1).x - vectorPoints(contentid, i).x
+        bVecY = vectorPoints(contentid, i + 1).y - vectorPoints(contentid, i).y
+        bVecLength = getVecLength(bVecX, bVecY)
+        sampleCount = bVecLength * roundFactor * 0.7
+
+        ' handle vectors
+        vec1x = vectorPoints(contentid, i).handlex - vectorPoints(contentid, i).x
+        vec1y = vectorPoints(contentid, i).handley - vectorPoints(contentid, i).y
+        handle1Length = getVecLength(vec1x, vec1y)
+        IF handle1Length > sampleCount / 5 THEN handle1oversampling = 1 + (handle1Length / bVecLength) ELSE handle1oversampling = 1 ' prevents oversampling for small handle lengths
+
+        vec2x = vectorPoints(contentid, i + 1).handlex - vectorPoints(contentid, i + 1).x
+        vec2y = vectorPoints(contentid, i + 1).handley - vectorPoints(contentid, i + 1).y
+        handle2Length = getVecLength(vec2x, vec2y)
+        IF handle2Length > sampleCount / 5 THEN handle2oversampling = 1 + (handle2Length / bVecLength) ELSE handle2oversampling = 1 ' prevents oversampling for small handle lengths
+        sampleCount = INT(sampleCount * handle1oversampling * handle2oversampling)
+
+        s = 0: DO
+            s = getSampleNumber(s, sampleCount)
+            '_DISPLAY
+            handle1Influence = getHandleInfluence(s, sampleCount) * (1 - (s / sampleCount))
+            handle2Influence = -getHandleInfluence(s, sampleCount) * (s / sampleCount)
+
+            ' merged vector
+            SELECT CASE linemode
+                CASE 1
+                    pX = bVecX * (s / sampleCount) + vec1x * handle1Influence + vec2x * handle2Influence
+                    pY = bVecY * (s / sampleCount) + vec1y * handle1Influence + vec2y * handle2Influence
+                CASE 2
+                    pX = bVecX * (1 - handle1Influence - handle2Influence) + vec1x * handle1Influence + vec2x * handle2Influence
+                    pY = bVecY * (1 - handle1Influence - handle2Influence) + vec1y * handle1Influence + vec2y * handle2Influence
+                CASE 3
+                    pX = bVecX * (handle1Influence * handle2Influence) + vec1x * handle1Influence + vec2x * handle2Influence
+                    pY = bVecY * (handle1Influence * handle2Influence) + vec1y * handle1Influence + vec2y * handle2Influence
+            END SELECT
+
+            'PSET (vectorPoints(contentid, i).x + bVecX * (s / sampleCount), vectorPoints(contentid, i).y + bVecY * (s / sampleCount)), _RGBA(255, 255, 255, 20)
+            fx = vectorPoints(contentid, i).x + pX
+            fy = vectorPoints(contentid, i).y + pY
+            fx = layer.x + (fx * file.zoom)
+
+            IF fx > coord.x AND fx < coord.x + coord.w AND fy > coord.y AND fy < coord.y + coord.h THEN
+                PSET (fx, fy), _RGBA(255, 255, 255, 255)
+            END IF
+        LOOP UNTIL s >= sampleCount
+    LOOP UNTIL i = maxpoints - 1
+    _DEST 0
+    displayVectorPreview contentid
+END SUB
+
+SUB displayLines (layer AS layerInfo, layerIsActive AS _BYTE, coord AS rectangle)
+    contentid = layer.contentid
+    maxPoints = getMaxPoints(contentid)
+    IF maxPoints < 2 THEN EXIT SUB
+
+    roundFactor = getDownSamplingFactor(roundsSinceEdit, 10)
+
+    IF mouse.noMovement >= mouse.movementTimer AND vectorPreview(contentid).mouseStatus = 1 THEN
+        generateVectorPreview layer, maxPoints, roundFactor, coord
+        vectorPreview(contentid).status = 1 + layerIsActive
+        EXIT SUB
+    ELSEIF roundFactor = 1 THEN
+        IF vectorPreviewGenerated(contentid, layerIsActive) THEN
+            displayVectorPreview contentid
+        ELSE
+            generateVectorPreview layer, maxPoints, 1, coord
+            vectorPreview(contentid).status = 1 + layerIsActive
+        END IF
+        EXIT SUB
+    ELSE
+        generateVectorPreview layer, maxPoints, roundFactor, coord
+        vectorPreview(contentid).status = 0
+    END IF
+END SUB
+
+FUNCTION getVecLength (xComponent, yComponent)
+    getVecLength = SQR((ABS(xComponent) ^ 2) + (ABS(yComponent) ^ 2))
+END FUNCTION
+
+FUNCTION getDownSamplingFactor (elapsedRounds, roundLimit)
+    roundFactor = (elapsedRounds + 1) / roundLimit
+    IF roundFactor > 1 THEN roundFactor = 1
+    getDownSamplingFactor = roundFactor
+END FUNCTION
+
+FUNCTION getSampleNumber (currentSample, sampleCount AS _INTEGER64)
+    IF currentSample = 0 THEN
+        getSampleNumber = currentSample + 0.01
+    ELSEIF sampleCount - currentSample < 0.01 THEN
+        getSampleNumber = sampleCount
+    ELSE
+        getSampleNumber = currentSample + getHandleInfluence(currentSample, sampleCount)
+    END IF
+END FUNCTION
+
+FUNCTION getHandleInfluence (currentSample, sampleCount AS _INTEGER64)
+    buffer = 1 - ((2 * ABS((currentSample / sampleCount) - 0.5)) ^ 2)
+    IF buffer > 0 THEN
+        buffer = SQR(buffer)
+    ELSEIF buffer < 0 THEN
+        buffer = SQR(-buffer)
+    END IF
+    getHandleInfluence = buffer
+END FUNCTION
+
+SUB displayPoints (contentid AS INTEGER, coord AS rectangle)
+    maxPoints = getMaxPoints(contentid)
+    IF maxPoints > 0 THEN
+        i = 0: DO: i = i + 1
+            IF vectorPoints(contentid, i).x > coord.x AND vectorPoints(contentid, i).x < coord.x + coord.w AND vectorPoints(contentid, i).y > coord.y AND vectorPoints(contentid, i).y < coord.y + coord.h THEN
+                ' base point
+                IF mouse.noMovement < mouse.movementTimer THEN LINE (vectorPoints(contentid, i).x - pointsize, vectorPoints(contentid, i).y - pointsize)-(vectorPoints(contentid, i).x + pointsize, vectorPoints(contentid, i).y + pointsize), _RGBA(0, 150, 255, 255), BF
+                PSET (vectorPoints(contentid, i).x, vectorPoints(contentid, i).y), _RGBA(255, 255, 255, 255)
+
+                IF clickCondition("deletePoint", vectorPoints(contentid, i).x, vectorPoints(contentid, i).y, coord) THEN
+                    IF i < maxPoints THEN
+                        i2 = i: DO
+                            vectorPoints(contentid, i2) = vectorPoints(contentid, i2 + 1)
+                            i2 = i2 + 1
+                        LOOP UNTIL i2 = maxPoints
+                    END IF
+                    vectorPoints(contentid, maxPoints) = vectorPoints(0, 0)
+                    maxPoints = maxPoints - 1
+                    roundsSinceEdit = 0
+                ELSEIF clickCondition("movePoint", vectorPoints(contentid, i).x, vectorPoints(contentid, i).y, coord) OR activeGrab = i THEN
+                    IF mouse.x > coord.x AND mouse.x < coord.x + coord.w AND mouse.y > coord.y AND mouse.y < coord.y + coord.h THEN
+                        HoffX = vectorPoints(contentid, i).handlex - vectorPoints(contentid, i).x
+                        HoffY = vectorPoints(contentid, i).handley - vectorPoints(contentid, i).y
+                        vectorPoints(contentid, i).x = mouse.x: vectorPoints(contentid, i).y = mouse.y
+                        vectorPoints(contentid, i).handlex = vectorPoints(contentid, i).x + HoffX
+                        vectorPoints(contentid, i).handley = vectorPoints(contentid, i).y + HoffY
+                        activeGrab = i
+                        roundsSinceEdit = 0
+                    END IF
+                END IF
+
+                ' handle
+                IF pointDeleted = 0 AND mouse.noMovement < mouse.movementTimer THEN
+                    LINE (vectorPoints(contentid, i).x, vectorPoints(contentid, i).y)-(vectorPoints(contentid, i).handlex, vectorPoints(contentid, i).handley), _RGBA(255, 255, 255, 100)
+                    CIRCLE (vectorPoints(contentid, i).handlex, vectorPoints(contentid, i).handley), pointsize * 0.75, _RGBA(255, 205, 11, 255)
+                    PAINT (vectorPoints(contentid, i).handlex, vectorPoints(contentid, i).handley), _RGBA(255, 205, 11, 255), _RGBA(255, 205, 11, 255)
+
+                    IF clickCondition("moveHandle", vectorPoints(contentid, i).handlex, vectorPoints(contentid, i).handley, coord) OR activeHandleGrab = i THEN
+                        vectorPoints(contentid, i).handlex = mouse.x: vectorPoints(contentid, i).handley = mouse.y
+                        activeHandleGrab = i
+                        roundsSinceEdit = 0
+                    END IF
+                END IF
+            END IF
+        LOOP UNTIL i >= maxPoints
+    END IF
+
+    IF clickCondition("createPoint", 0, 0, coord) THEN
+        createPoint mouse.x, mouse.y, mouse.x, mouse.y, contentid
+        roundsSinceEdit = 0
+    END IF
+END SUB
+
+SUB createPoint (x AS INTEGER, y AS INTEGER, handlex AS INTEGER, handley AS INTEGER, contentid AS INTEGER)
+    maxPoints = getMaxPoints(contentid) + 1
+    IF UBOUND(vectorPoints, 1) < contentid THEN
+        REDIM _PRESERVE vectorPoints(contentid, UBOUND(vectorPoints)) AS vectorPoint
+    END IF
+    IF UBOUND(vectorPoints, 2) < maxPoints THEN
+        REDIM _PRESERVE vectorPoints(UBOUND(vectorPoints, 1), maxPoints) AS vectorPoint
+    END IF
+    vectorPoints(contentid, maxPoints).x = x
+    vectorPoints(contentid, maxPoints).y = y
+    vectorPoints(contentid, maxPoints).handlex = handlex
+    vectorPoints(contentid, maxPoints).handley = handley
+END SUB
+
+FUNCTION getMaxPoints (contentid AS INTEGER)
+    IF contentid > UBOUND(vectorPoints, 1) THEN getMaxPoints = 0: EXIT FUNCTION
+    IF UBOUND(vectorPoints, 2) > 0 THEN
+        i = 0: DO: i = i + 1
+            IF pointEmpty(vectorPoints(contentid, i)) THEN
+                getMaxPoints = i - 1 ' finds an empty spot before reaching the end
+                EXIT FUNCTION
+            END IF
+        LOOP UNTIL i = UBOUND(vectorPoints, 2)
+        getMaxPoints = i ' reached the end and found no empty spot
+    ELSE
+        getMaxPoints = 0 ' array never had any points
+    END IF
+END FUNCTION
