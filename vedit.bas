@@ -26,6 +26,7 @@ REDIM SHARED file AS fileInfo
 
 'UI
 '$INCLUDE: 'dependencies/um.bi'
+'$INCLUDE: 'dependencies/gif.bi'
 '$INCLUDE: 'dependencies/opensave.bi'
 '$INCLUDE: 'dependencies/saveimage.bi'
 
@@ -627,7 +628,7 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
 
     ' corner 1
     LINE (coord.x - coordCorr, coord.y - coordCorr)-(coord.x + coordCorr, coord.y + coordCorr), _RGBA(72, 144, 255, 255), BF
-    IF NOT mouse.left THEN IF currentImage.corner = 1 THEN resetCurrentImage: _MOUSESHOW "DEFAULT"
+    IF NOT mouse.left THEN IF currentImage.corner = 1 THEN resetCurrentImage
     IF inRadius(coord.x, coord.y, mouse.x - canvas.x, mouse.y - canvas.y, handleSize * 2) THEN
         IF global.altCursors THEN
             _MOUSEHIDE
@@ -655,7 +656,7 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
     ELSE
         IF global.altCursors THEN _MOUSESHOW "DEFAULT"
     END IF
-    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 2 THEN resetCurrentImage: _MOUSESHOW "DEFAULT"
+    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 2 THEN resetCurrentImage
     IF (inRadius(coord.x + coord.w, coord.y, mouse.x - canvas.x, mouse.y - canvas.y, handleSize * 2) AND mouse.left AND (currentImage.corner = 2 OR currentImage.corner < 1)) OR (currentImage.ID = layerID AND currentImage.corner = 2) AND NOT blockMove THEN
         moveLayerCorner layer, 2, layerID, canvas
         blockMove = -1
@@ -673,7 +674,7 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
     ELSE
         IF global.altCursors THEN _MOUSESHOW "DEFAULT"
     END IF
-    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 3 THEN resetCurrentImage: _MOUSESHOW "DEFAULT"
+    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 3 THEN resetCurrentImage
     IF (inRadius(coord.x, coord.y + coord.h, mouse.x - canvas.x, mouse.y - canvas.y, handleSize * 2) AND mouse.left AND (currentImage.corner = 3 OR currentImage.corner < 1)) OR (currentImage.ID = layerID AND currentImage.corner = 3) AND NOT blockMove THEN
         moveLayerCorner layer, 3, layerID, canvas
         blockMove = -1
@@ -691,14 +692,14 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
     ELSE
         IF global.altCursors THEN _MOUSESHOW "DEFAULT"
     END IF
-    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 4 THEN resetCurrentImage: _MOUSESHOW "DEFAULT"
+    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 4 THEN resetCurrentImage
     IF (inRadius(coord.x + coord.w, coord.y + coord.h, mouse.x - canvas.x, mouse.y - canvas.y, handleSize * 2) AND mouse.left AND (currentImage.corner = 4 OR currentImage.corner < 1)) OR (currentImage.ID = layerID AND currentImage.corner = 4) AND NOT blockMove THEN
         moveLayerCorner layer, 4, layerID, canvas
         blockMove = -1
     END IF
 
     ' moving image
-    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 5 THEN resetCurrentImage: _MOUSESHOW "DEFAULT"
+    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 5 THEN resetCurrentImage
     IF layerIsActive AND (clickCondition("moveImage", 0, 0, coord, canvas) OR (mouse.left AND (currentImage.corner = 5 OR currentImage.corner < 1))) AND NOT blockMove THEN
         moveLayerCorner layer, 5, layerID, canvas
     END IF
@@ -747,6 +748,7 @@ SUB resetCurrentImage
     currentImage.coord.h = -1
     currentImage.ID = -1
     currentImage.corner = -1
+    _MOUSESHOW "DEFAULT"
 END SUB
 
 SUB moveLayerCorner (layer AS layerInfo, corner AS _BYTE, layerID AS INTEGER, canvas AS rectangle)
@@ -1031,6 +1033,7 @@ END SUB
 '--------------------------------------------------------------------------------------------------------------------------------------'
 
 '$INCLUDE: 'dependencies/VEvector.bm'
+'$INCLUDE: 'dependencies/gif.bm'
 '$INCLUDE: 'dependencies/saveimage.bm'
 '$INCLUDE: 'dependencies/opensave.bm'
 '$INCLUDE: 'dependencies/um.bm'
