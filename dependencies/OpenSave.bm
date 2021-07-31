@@ -44,7 +44,7 @@ END IF
  
 END FUNCTION
  
-FUNCTION GetSaveFileName$ (Title$, InitialDir$, Filter$, FilterIndex&, Flags&, hWnd&&)
+FUNCTION GetSaveFileName$ (Title$, InitialDir$, Filter$, FilterIndex&, FilterCount&, Flags&, hWnd&&)
 '  Title$      - The dialog title.
 '  InitialDir$ - If this left blank, it will use the directory where the last opened file is
 '     located. Specify ".\" if you want to always use the current directory.
@@ -90,15 +90,20 @@ FilterIndex& = SaveCall.nFilterIndex
 END IF
 
 $IF 64BIT THEN
-count = FilterIndex&
-s$ = filter$
-
-FOR d = 1 TO count
-    separator = INSTR(s$, "*")
-    s$ = RIGHT$(s$, LEN(s$) - separator)
-    ext$ = LEFT$(s$, 4)
-    IF LEN(ext$) > 4 THEN ext$ = MID$(ext$, 1, 4)
-NEXT
-if len (getsavefilename$) and right$(getsavefilename$,4) <> ext$  then getsavefilename$ = getsavefilename$ + ext$
+    s$ = filter$
+    prev = 0
+    FOR d = 1 TO FilterCount&
+        sepPos = INSTR(prev, s$, ".")
+        secondPos = INSTR(sepPos + 1, s$, ".")
+        prev = secondPos + 1
+        ext$ = MID$(s$, sepPos, 4)
+        IF d = FilterIndex& THEN d = FilterCount&
+        'separator = INSTR(prev, s$, "*")
+        's$ = RIGHT$(s$, LEN(s$) - separator)
+        'ext$ = LEFT$(s$, 4)
+        'IF LEN(ext$) > 4 THEN ext$ = MID$(ext$, 1, 4)
+        'prev = separator +1
+    NEXT
+    if len (getsavefilename$) and right$(getsavefilename$,4) <> ext$  then getsavefilename$ = getsavefilename$ + ext$
 $end if
 END FUNCTION

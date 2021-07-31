@@ -20,7 +20,7 @@ REDIM SHARED layerInfo(0) AS layerInfo
 TYPE fileInfo
     AS DOUBLE w, h, zoom, xOffset, yOffset
     AS INTEGER activeLayer
-    AS STRING name, file
+    AS STRING name, file, activeTool
 END TYPE
 REDIM SHARED file AS fileInfo
 
@@ -136,7 +136,7 @@ SUB saveFileDialog
     'filter$ = "PNG (*.png)|*.PNG|VFI (*.vfi)|*.VFI" + CHR$(0)
     filter$ = "JPG (*.jpg)|*.jpg|PNG (*.png)|*.png|VFI (*.vfi)|*.vfi" + CHR$(0)
     flags& = OFN_OVERWRITEPROMPT + OFN_NOCHANGEDIR '   add flag constants here
-    targetfile$ = GetSaveFileName$("Vedit - Save File", ".\", filter$, 3, flags&, _WINDOWHANDLE)
+    targetfile$ = GetSaveFileName$("Vedit - Save File", ".\", filter$, 3, 3, flags&, _WINDOWHANDLE)
     saveFile targetfile$
 END SUB
 
@@ -169,7 +169,7 @@ SUB writeVFI (targetFile AS STRING)
     freen = FREEFILE
     'OPEN targetFile FOR OUTPUT AS #freen
     OPEN targetFile FOR BINARY AS #freen
-    info$ = "type=fileInfo;width=" + LST$(file.w) + ";height=" + LST$(file.h) + ";zoom=" + LST$(file.zoom) + ";xOffset=" + LST$(file.xOffset) + ";yOffset=" + LST$(file.yOffset) + ";activeLayer=" + LST$(file.activeLayer) + ";name=" + file.name + ";file=" + targetFile + CHR$(13)
+    info$ = "type=fileInfo;width=" + LST$(file.w) + ";height=" + LST$(file.h) + ";zoom=" + LST$(file.zoom) + ";xOffset=" + LST$(file.xOffset) + ";yOffset=" + LST$(file.yOffset) + ";activeLayer=" + LST$(file.activeLayer) + ";activeTool=" + file.activeTool + ";name=" + file.name + ";file=" + targetFile + CHR$(13)
     'PRINT #freen, info$
     PUT #freen, , info$
     IF UBOUND(layerinfo) > 0 THEN
@@ -391,6 +391,7 @@ SUB newFile (filePath AS STRING, fileName AS STRING, w AS INTEGER, h AS INTEGER,
     file.w = w
     file.h = h
     file.activeLayer = activeLayer
+    file.activeTool = "move"
     file.xOffset = xOff
     file.yOffset = yOff
     file.zoom = zoom
@@ -593,7 +594,7 @@ SUB displayLayers (coord AS rectangle)
                     ELSE
                         IF layerInfo(layer).enabled THEN
                             displayLines layerInfo(layer), layerIsActive, coord, canvasImg
-                            IF layerIsActive THEN
+                            IF layerIsActive AND file.activeTool = "move" THEN
                                 displayPoints layerInfo(layer), coord
                             END IF
                         END IF
@@ -609,6 +610,7 @@ SUB displayLayers (coord AS rectangle)
     END IF
     _DEST 0
     _PUTIMAGE (coord.x, coord.y)-(coord.x + coord.w, coord.y + coord.h), canvasImg
+    _FREEIMAGE canvasImg
 END SUB
 
 SUB deleteLayer (layerID AS INTEGER)
@@ -636,7 +638,7 @@ SUB deleteVectorLayer (contentID AS INTEGER)
     vectorPreview(contentID) = vectorPreview(0)
     i = contentID - 1: DO: i = i + 1
         vectorPoints(contentID, i) = vectorPoints(0, 0)
-    LOOP UNTIL i = UBOUND(vectorPoints, 2)
+    LOOP UNTIL i = UBOUND(vectsorPoints, 2)
 END SUB
 
 SUB deleteImageLayer (contentID AS INTEGER)
@@ -662,7 +664,7 @@ SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS IN
         layerCoord.h = (layer.h * file.zoom)
     END IF
     IF imageLayer(contentid).img < -1 AND layer.w > 0 AND layer.h > 0 THEN _PUTIMAGE (layerCoord.x, layerCoord.y)-(layerCoord.x + layerCoord.w, layerCoord.y + layerCoord.h), imageLayer(contentid).img
-    IF layerIsActive THEN
+    IF layerIsActive AND file.activeTool = "move" THEN
         displayLayerOutline layerCoord, layer, layerIsActive, layerID, canvas
     END IF
 END SUB

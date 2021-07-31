@@ -1192,7 +1192,11 @@ FUNCTION getEWidth$ (e AS INTEGER, currentfont AS LONG)
         firstpart$ = MID$(elements(e).w, 1, INSTR(elements(e).w, "/m") - 1)
         secondpart$ = MID$(elements(e).w, INSTR(elements(e).w, "/m") + 2, LEN(elements(e).w))
         relation = VAL(firstpart$) / VAL(secondpart$)
-        getEWidth$ = LST$((relation * _WIDTH(0)) - (global.margin * 3))
+        IF getEXPos$(e, currentfont) = LST$(global.margin) THEN
+            getEWidth$ = LST$((relation * _WIDTH(0)) - (global.margin * 3))
+        ELSE
+            getEWidth$ = LST$((relation * _WIDTH(0)) - (global.margin))
+        END IF
     ELSEIF INSTR(elements(e).w, "/") THEN ' REPLACE WITH MATH PARSER
         firstpart$ = MID$(elements(e).w, 1, INSTR(elements(e).w, "/") - 1)
         secondpart$ = MID$(elements(e).w, INSTR(elements(e).w, "/") + 1, LEN(elements(e).w))

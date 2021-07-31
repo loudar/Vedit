@@ -9,7 +9,8 @@ type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.y;text=Y
 type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.w;text=W;hovertext=Current layer width
 type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.h;text=H;hovertext=Current layer height
 type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=file.zoom;text=%;hovertext=Current file zoom
-type=canvas;x=left;y=prevb;w=3/m4;h=nextt;color=ui;hovercolor=ui;name=canvas;angle=0;style=bf
+type=list;x=left;y=prevb;w=0.25/m4;h=(canvas);color=ui;hovercolor=ui2;name=toollist;style=b;angle=0;text=Tools;content=tools;hovertext=A list of all tools available
+type=canvas;x=prevr;y=prev;w=2.75/m4;h=nextt;color=ui;hovercolor=ui;name=canvas;angle=0;style=bf
 type=button;x=right;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=quit;style=b;angle=0;text=Quit;action=quit
 type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=back;style=b;angle=0;text=Back;action=view.main
 type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=settings;style=b;angle=0;text=Settings;action=view.settings;hovertext=Opens the settings menu
