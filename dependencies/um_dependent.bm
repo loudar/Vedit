@@ -16,6 +16,10 @@ SUB doThis (arguments AS STRING, recursivecall AS _BYTE) 'program-specific actio
             openFile ""
         CASE "open.file"
             openFileDialog
+        CASE "add.vector"
+             createLayer "Untitled", 0, 0, file.w, file.h, "vector", UBOUND(vectorPoints, 1) + 1, ""
+        CASE "add.image"
+             createLayer "Untitled", 0, 0, file.w, file.h, "image", UBOUND(imageLayer) + 1, ""
         CASE "add.license"
             IF set(license) THEN
                 success = add.License$("license=" + license)
@@ -39,6 +43,27 @@ SUB doThis (arguments AS STRING, recursivecall AS _BYTE) 'program-specific actio
     SELECT CASE MID$(action$, 1, INSTR(action$, ".") - 1)
         CASE "view"
             currentview = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
+    END SELECT
+END SUB
+
+SUB checkForSpecialText (this AS element)
+    SELECT CASE this.name
+        CASE "time"
+            this.buffer = TIME$
+        CASE "date"
+            this.buffer = DATE$
+        CASE "transmit"
+            this.buffer = transmittedtext
+        CASE "layer.x"
+            IF UBOUND(layerInfo) >= file.activeLayer THEN this.buffer = LST$(layerInfo(file.activeLayer).x)
+        CASE "layer.y"
+            IF UBOUND(layerInfo) >= file.activeLayer THEN this.buffer = LST$(layerInfo(file.activeLayer).y)
+        CASE "layer.w"
+            IF UBOUND(layerInfo) >= file.activeLayer THEN this.buffer = LST$(layerInfo(file.activeLayer).w)
+        CASE "layer.h"
+            IF UBOUND(layerInfo) >= file.activeLayer THEN this.buffer = LST$(layerInfo(file.activeLayer).h)
+        CASE "file.zoom"
+            this.buffer = LST$(INT(file.zoom * 100))
     END SELECT
 END SUB
 
@@ -409,21 +434,6 @@ SUB saveConfig
     OPEN configfile$ FOR OUTPUT AS #freen
     PRINT #freen, config$
     CLOSE #freen
-END SUB
-
-SUB drawShape (arguments AS STRING, clr AS LONG)
-    DIM AS _FLOAT x, y, w, h, thickness
-    x = getArgumentv(arguments, "x")
-    y = getArgumentv(arguments, "y")
-    w = getArgumentv(arguments, "w")
-    h = getArgumentv(arguments, "h")
-    thickness = getArgumentv(arguments, "thickness")
-    SELECT CASE getArgument$(arguments, "shape")
-        CASE "+"
-            LINE (x + (w / 2) - (thickness / 2), y)-(x + (w / 2) + (thickness / 2), y + h), clr, BF
-            LINE (x, y + (h / 2) - (thickness / 2))-(x + w, y + (h / 2) + (thickness / 2)), clr, BF
-        CASE "x"
-    END SELECT
 END SUB
 
 FUNCTION checkLicense (license$)

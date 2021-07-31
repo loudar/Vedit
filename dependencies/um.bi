@@ -12,7 +12,7 @@ TYPE global
     AS STRING * 512 intpath, license, scheme, programName, permalink, permalinkCode
     AS _UNSIGNED _INTEGER64 matchthreshhold
     AS _FLOAT margin, padding, round, windowsize, sliderwidth
-    AS _BYTE licensestatus, partialsearch, actionlock
+    AS _BYTE licensestatus, partialsearch, actionlock, altCursors
 END TYPE
 REDIM SHARED global AS global
 global.programName = "Vedit"

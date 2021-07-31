@@ -673,25 +673,6 @@ FUNCTION getExceptionValue$ (elementname AS STRING)
     END SELECT
 END FUNCTION
 
-SUB checkForSpecialText (this AS element)
-    SELECT CASE this.name
-        CASE "time"
-            this.buffer = TIME$
-        CASE "date"
-            this.buffer = DATE$
-        CASE "transmit"
-            this.buffer = transmittedtext
-        CASE "layer.x"
-            this.buffer = LST$(layerInfo(file.activeLayer).x)
-        CASE "layer.y"
-            this.buffer = LST$(layerInfo(file.activeLayer).y)
-        CASE "layer.w"
-            this.buffer = LST$(layerInfo(file.activeLayer).w)
-        CASE "layer.h"
-            this.buffer = LST$(layerInfo(file.activeLayer).h)
-    END SELECT
-END SUB
-
 SUB makeGradient (this AS element, clearprevious AS _BYTE)
     IF clearprevious THEN clearGradients
     IF this.type = "gradient" THEN
@@ -1241,6 +1222,8 @@ FUNCTION getEHeight$ (e AS INTEGER, currentfont AS LONG)
         getEHeight$ = LST$(_FONTHEIGHT(font_normal) + (2 * global.padding))
     ELSEIF (elements(e).h = "nextt" OR elements(e).h = "next.top" OR elements(e).h = "nt") AND e < UBOUND(elements) THEN
         getEHeight$ = LST$(VAL(getEYPos$(e + 1, currentfont)) - (global.margin) - VAL(getEYPos$(e, currentfont)))
+    ELSEIF (elements(e).h = "prevt" OR elements(e).h = "prev.top" OR elements(e).h = "pt") AND e < UBOUND(elements) THEN
+        getEHeight$ = LST$(VAL(getEYPos$(e - 1, currentfont)) - (global.margin) - VAL(getEYPos$(e, currentfont)))
     ELSEIF INSTR(elements(e).h, "/") THEN
         firstpart$ = MID$(elements(e).h, 1, INSTR(elements(e).h, "/") - 1)
         secondpart$ = MID$(elements(e).h, INSTR(elements(e).h, "/") + 1, LEN(elements(e).h))

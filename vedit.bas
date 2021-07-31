@@ -51,6 +51,7 @@ TYPE currentImage
     AS rectangle coord
 END TYPE
 REDIM SHARED currentImage AS currentImage
+resetCurrentImage
 
 ' Vector layer
 TYPE vectorPoint
@@ -216,6 +217,7 @@ END SUB
 
 SUB loadVFI (sourceFile AS STRING)
     REDIM _PRESERVE file AS fileInfo
+    REDIM _PRESERVE layerInfo(0) AS layerInfo
     REDIM _PRESERVE imageLayer(0) AS imageLayer
     REDIM _PRESERVE vectorPoints(0, 0) AS vectorPoint
     REDIM _PRESERVE vectorPreview(0) AS vectorPreview
@@ -387,7 +389,6 @@ SUB newFile (filePath AS STRING, fileName AS STRING, w AS INTEGER, h AS INTEGER,
     file.yOffset = yOff
     file.zoom = zoom
 
-    createLayer "test layer", 0, 0, _WIDTH, _HEIGHT, "vector", UBOUND(vectorPoints, 1) + 1, ""
     activeLayer = 1
 END SUB
 
@@ -451,7 +452,7 @@ SUB fileDropCheck
                         n = LEN(df$) - p + 2
                         nl = LEN(df$) - n - 3
                         createLayer MID$(df$, n, nl), x, y, w, h, "image", UBOUND(imageLayer) + 1, df$
-                        _FREEIMAGE img
+                        IF img < -1 THEN _FREEIMAGE img
                     END IF
             END SELECT
         LOOP UNTIL _TOTALDROPPEDFILES = 0
@@ -482,7 +483,6 @@ SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS
             imageLayer(ID).img = _LOADIMAGE(sourceFile, 32)
             imageLayer(ID).w = w
             imageLayer(ID).h = h
-            ProcessRGBImage imageLayer(ID).img, 1, 1, 1, 0.5
     END SELECT
 END SUB
 
@@ -535,29 +535,31 @@ SUB displayLayers (coord AS rectangle)
     canvasImg = _NEWIMAGE(coord.w, coord.h, 32)
     _DEST canvasImg
     LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), _RGBA(150, 150, 150, 255), BF
-    IF UBOUND(layerInfo) < 1 THEN EXIT SUB
-    layer = 0: DO: layer = layer + 1
-        IF layer = file.activeLayer THEN layerIsActive = -1 ELSE layerIsActive = 0
-        SELECT CASE layerInfo(layer).type
-            CASE "vector"
-                IF layerIsActive AND keyhit = 21248 THEN
-                    deleteLayer layer
-                ELSE
-                    IF layerInfo(layer).enabled THEN
-                        displayLines layerInfo(layer), layerIsActive, coord
-                        IF layerIsActive THEN
-                            displayPoints layerInfo(layer).contentid, coord
+    IF UBOUND(layerInfo) > 0 THEN
+        IF file.activeLayer > UBOUND(layerInfo) THEN file.activeLayer = UBOUND(layerInfo)
+        layer = 0: DO: layer = layer + 1
+            IF layer = file.activeLayer THEN layerIsActive = -1 ELSE layerIsActive = 0
+            SELECT CASE layerInfo(layer).type
+                CASE "vector"
+                    IF layerIsActive AND keyhit = 21248 THEN
+                        deleteLayer layer
+                    ELSE
+                        IF layerInfo(layer).enabled THEN
+                            displayLines layerInfo(layer), layerIsActive, coord, canvasImg
+                            IF layerIsActive THEN
+                                displayPoints layerInfo(layer), coord
+                            END IF
                         END IF
                     END IF
-                END IF
-            CASE "image"
-                IF layerIsActive AND keyhit = 21248 THEN
-                    deleteLayer layer
-                ELSE
-                    IF layerInfo(layer).enabled THEN displayImageLayer layerInfo(layer), layerIsActive, layer, coord
-                END IF
-        END SELECT
-    LOOP UNTIL layer >= UBOUND(layerInfo)
+                CASE "image"
+                    IF layerIsActive AND keyhit = 21248 THEN
+                        deleteLayer layer
+                    ELSE
+                        IF layerInfo(layer).enabled THEN displayImageLayer layerInfo(layer), layerIsActive, layer, coord
+                    END IF
+            END SELECT
+        LOOP UNTIL layer >= UBOUND(layerInfo)
+    END IF
     _DEST 0
     _PUTIMAGE (coord.x, coord.y)-(coord.x + coord.w, coord.y + coord.h), canvasImg
 END SUB
@@ -577,6 +579,7 @@ SUB deleteLayer (layerID AS INTEGER)
         LOOP UNTIL i = UBOUND(layerInfo) - 1
     END IF
     REDIM _PRESERVE layerInfo(UBOUND(layerInfo) - 1) AS layerInfo
+    IF file.activeLayer > UBOUND(layerInfo) THEN file.activeLayer = UBOUND(layerInfo)
 END SUB
 
 SUB deleteVectorLayer (contentID AS INTEGER)
@@ -600,62 +603,140 @@ SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS IN
     REDIM layerCoord AS rectangle
     layerCoord.x = (layer.x * file.zoom) + file.xOffset
     layerCoord.y = (layer.y * file.zoom) + file.yOffset
-    layerCoord.w = layerCoord.x + layer.w * file.zoom
-    layerCoord.h = layerCoord.y + layer.h * file.zoom
+    layerCoord.w = (layer.w * file.zoom)
+    layerCoord.h = (layer.h * file.zoom)
     IF imageLayer(contentid).img > -2 THEN
         imageLayer(contentid).img = _LOADIMAGE(imageLayer(contentid).file, 32)
         imageLayer(contentid).w = _WIDTH(imageLayer(contentid).img)
         imageLayer(contentid).h = _HEIGHT(imageLayer(contentid).img)
         layer.w = imageLayer(contentid).w
         layer.h = imageLayer(contentid).h
+        layerCoord.w = (layer.w * file.zoom)
+        layerCoord.h = (layer.h * file.zoom)
     END IF
-    _PUTIMAGE (layerCoord.x, layerCoord.y)-(layerCoord.w, layerCoord.h), imageLayer(contentid).img
+    IF imageLayer(contentid).img < -1 AND layer.w > 0 AND layer.h > 0 THEN _PUTIMAGE (layerCoord.x, layerCoord.y)-(layerCoord.x + layerCoord.w, layerCoord.y + layerCoord.h), imageLayer(contentid).img
     IF layerIsActive THEN
         displayLayerOutline layerCoord, layer, layerIsActive, layerID, canvas
     END IF
 END SUB
 
 SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive AS _BYTE, layerID AS INTEGER, canvas AS rectangle)
-    LINE (coord.x, coord.y)-(coord.w, coord.h), _RGBA(72, 144, 255, 255), B
-    handleSize = 5
+    LINE (coord.x, coord.y)-(coord.x + coord.w, coord.y + coord.h), _RGBA(72, 144, 255, 255), B
+    handleSize = 7
     coordCorr = INT((handleSize - 1) / 2)
+
+    ' corner 1
     LINE (coord.x - coordCorr, coord.y - coordCorr)-(coord.x + coordCorr, coord.y + coordCorr), _RGBA(72, 144, 255, 255), BF
-    IF NOT mouse.left THEN IF currentImage.corner = 1 THEN resetCurrentImage
-    IF (inRadius(coord.x, coord.y, mouse.x, mouse.y, handleSize * 2) AND mouse.left) OR (currentImage.ID = layerID AND currentImage.corner = 1) THEN
-        moveLayerCorner layer, 1, layerID
-        blockMove = -1
-    END IF
-    LINE (coord.w - coordCorr, coord.y - coordCorr)-(coord.w + coordCorr, coord.y + coordCorr), _RGBA(72, 144, 255, 255), BF
-    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 2 THEN resetCurrentImage
-    IF (inRadius(coord.w, coord.y, mouse.x, mouse.y, handleSize * 2) AND mouse.left) OR (currentImage.ID = layerID AND currentImage.corner = 2) AND NOT blockMove THEN
-        moveLayerCorner layer, 2, layerID
-        blockMove = -1
-    END IF
-    LINE (coord.x - coordCorr, coord.h - coordCorr)-(coord.x + coordCorr, coord.h + coordCorr), _RGBA(72, 144, 255, 255), BF
-    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 3 THEN resetCurrentImage
-    IF (inRadius(coord.x, coord.h, mouse.x, mouse.y, handleSize * 2) AND mouse.left) OR (currentImage.ID = layerID AND currentImage.corner = 3) AND NOT blockMove THEN
-        moveLayerCorner layer, 3, layerID
-        blockMove = -1
-    END IF
-    LINE (coord.w - coordCorr, coord.h - coordCorr)-(coord.w + coordCorr, coord.h + coordCorr), _RGBA(72, 144, 255, 255), BF
-    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 4 THEN resetCurrentImage
-    IF (inRadius(coord.w, coord.h, mouse.x, mouse.y, handleSize * 2) AND mouse.left) OR (currentImage.ID = layerID AND currentImage.corner = 4) AND NOT blockMove THEN
-        moveLayerCorner layer, 4, layerID
-        blockMove = -1
-    END IF
-    IF (clickCondition("moveImage", 0, 0, coord) AND layerIsActive AND NOT blockMove) OR (currentImage.ID = layerID AND currentImage.corner = 5 AND mouse.left) THEN
-        IF currentImage.xOff = -1 AND currentImage.yOff = -1 THEN
-            currentImage.xOff = mouse.x - (file.xOffset + (layer.x * file.zoom) + canvas.x)
-            currentImage.yOff = mouse.y - (file.yOffset + (layer.y * file.zoom) + canvas.y)
-            currentImage.corner = 5
-            currentImage.ID = layerID
+    IF NOT mouse.left THEN IF currentImage.corner = 1 THEN resetCurrentImage: _MOUSESHOW "DEFAULT"
+    IF inRadius(coord.x, coord.y, mouse.x - canvas.x, mouse.y - canvas.y, handleSize * 2) THEN
+        IF global.altCursors THEN
+            _MOUSEHIDE
+            drawShape "shape=resize1;x=" + LST$(mouse.x - canvas.x) + ";y=" + LST$(mouse.y - canvas.y), col&("ui")
+        ELSE
+            _MOUSESHOW "TOPLEFT_BOTTOMRIGHT"
         END IF
-        layer.x = INT((mouse.x - (currentImage.xOff + file.xOffset + canvas.x)) * (1 / file.zoom))
-        layer.y = INT((mouse.y - (currentImage.yOff + file.yOffset + canvas.y)) * (1 / file.zoom))
     ELSE
-        IF NOT blockMove THEN resetCurrentImage
+        IF global.altCursors THEN _MOUSESHOW "DEFAULT"
+    END IF
+    IF (inRadius(coord.x, coord.y, mouse.x - canvas.x, mouse.y - canvas.y, handleSize * 2) AND mouse.left AND currentImage.corner < 2) OR (currentImage.ID = layerID AND currentImage.corner = 1) THEN
+        moveLayerCorner layer, 1, layerID, canvas
+        blockMove = -1
+    END IF
+
+    ' corner 2
+    LINE (coord.x + coord.w - coordCorr, coord.y - coordCorr)-(coord.x + coord.w + coordCorr, coord.y + coordCorr), _RGBA(72, 144, 255, 255), BF
+    IF inRadius(coord.x + coord.w, coord.y, mouse.x - canvas.x, mouse.y - canvas.y, handleSize * 2) THEN
+        IF global.altCursors THEN
+            _MOUSEHIDE
+            drawShape "shape=resize2;x=" + LST$(mouse.x - canvas.x) + ";y=" + LST$(mouse.y - canvas.y), col&("ui")
+        ELSE
+            _MOUSESHOW "TOPRIGHT_BOTTOMLEFT"
+        END IF
+    ELSE
+        IF global.altCursors THEN _MOUSESHOW "DEFAULT"
+    END IF
+    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 2 THEN resetCurrentImage: _MOUSESHOW "DEFAULT"
+    IF (inRadius(coord.x + coord.w, coord.y, mouse.x - canvas.x, mouse.y - canvas.y, handleSize * 2) AND mouse.left AND (currentImage.corner = 2 OR currentImage.corner < 1)) OR (currentImage.ID = layerID AND currentImage.corner = 2) AND NOT blockMove THEN
+        moveLayerCorner layer, 2, layerID, canvas
+        blockMove = -1
+    END IF
+
+    ' corner 3
+    LINE (coord.x - coordCorr, coord.y + coord.h - coordCorr)-(coord.x + coordCorr, coord.y + coord.h + coordCorr), _RGBA(72, 144, 255, 255), BF
+    IF inRadius(coord.x, coord.y + coord.h, mouse.x - canvas.x, mouse.y - canvas.y, handleSize * 2) THEN
+        IF global.altCursors THEN
+            _MOUSEHIDE
+            drawShape "shape=resize2;x=" + LST$(mouse.x - canvas.x) + ";y=" + LST$(mouse.y - canvas.y), col&("ui")
+        ELSE
+            _MOUSESHOW "TOPRIGHT_BOTTOMLEFT"
+        END IF
+    ELSE
+        IF global.altCursors THEN _MOUSESHOW "DEFAULT"
+    END IF
+    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 3 THEN resetCurrentImage: _MOUSESHOW "DEFAULT"
+    IF (inRadius(coord.x, coord.y + coord.h, mouse.x - canvas.x, mouse.y - canvas.y, handleSize * 2) AND mouse.left AND (currentImage.corner = 3 OR currentImage.corner < 1)) OR (currentImage.ID = layerID AND currentImage.corner = 3) AND NOT blockMove THEN
+        moveLayerCorner layer, 3, layerID, canvas
+        blockMove = -1
+    END IF
+
+    ' corner 4
+    LINE (coord.x + coord.w - coordCorr, coord.y + coord.h - coordCorr)-(coord.x + coord.w + coordCorr, coord.y + coord.h + coordCorr), _RGBA(72, 144, 255, 255), BF
+    IF inRadius(coord.x + coord.w, coord.y + coord.h, mouse.x - canvas.x, mouse.y - canvas.y, handleSize * 2) THEN
+        IF global.altCursors THEN
+            _MOUSEHIDE
+            drawShape "shape=resize1;x=" + LST$(mouse.x - canvas.x) + ";y=" + LST$(mouse.y - canvas.y), col&("ui")
+        ELSE
+            _MOUSESHOW "TOPLEFT_BOTTOMRIGHT"
+        END IF
+    ELSE
+        IF global.altCursors THEN _MOUSESHOW "DEFAULT"
+    END IF
+    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 4 THEN resetCurrentImage: _MOUSESHOW "DEFAULT"
+    IF (inRadius(coord.x + coord.w, coord.y + coord.h, mouse.x - canvas.x, mouse.y - canvas.y, handleSize * 2) AND mouse.left AND (currentImage.corner = 4 OR currentImage.corner < 1)) OR (currentImage.ID = layerID AND currentImage.corner = 4) AND NOT blockMove THEN
+        moveLayerCorner layer, 4, layerID, canvas
+        blockMove = -1
+    END IF
+
+    ' moving image
+    IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 5 THEN resetCurrentImage: _MOUSESHOW "DEFAULT"
+    IF layerIsActive AND (clickCondition("moveImage", 0, 0, coord, canvas) OR (mouse.left AND (currentImage.corner = 5 OR currentImage.corner < 1))) AND NOT blockMove THEN
+        moveLayerCorner layer, 5, layerID, canvas
     END IF
 END SUB
+
+FUNCTION clickCondition (conditionName AS STRING, x AS DOUBLE, y AS DOUBLE, coord AS rectangle, canvas AS rectangle)
+    REDIM mcoord AS rectangle
+    mcoord.x = mouse.x - canvas.x
+    mcoord.y = mouse.y - canvas.y
+    IF inBounds(mcoord, coord) THEN
+        'IF mouse.x >= coord.x AND mouse.x <= coord.x + coord.w AND mouse.y >= coord.y AND mouse.y <= coord.y + coord.h THEN
+        LINE (coord.x, coord.y)-(coord.x + coord.w, coord.y + coord.h), _RGBA(255, 255, 0, 255), B
+        SELECT CASE conditionName
+            CASE "deletePoint"
+                IF mouse.middle AND inRadius(x, y, mouse.x - coord.x, mouse.y - coord.y, 20) AND mouse.middletimedif > .01 THEN
+                    clickCondition = -1
+                ELSEIF ctrlDown AND mouse.left AND inRadius(x, y, mouse.x - coord.x, mouse.y - coord.y, 20) AND mouse.lefttimedif > .01 THEN
+                    clickCondition = -1
+                ELSE clickCondition = 0
+                END IF
+            CASE "movePoint"
+                IF mouse.left AND inRadius(x, y, mouse.x - coord.x, mouse.y - coord.y, 20) THEN clickCondition = -1 ELSE clickCondition = 0
+            CASE "createPoint"
+                IF mouse.middle AND mouse.middletimedif > .01 THEN
+                    clickCondition = -1
+                ELSEIF ctrlDown AND mouse.left AND mouse.lefttimedif > .01 THEN
+                    clickCondition = -1
+                ELSE clickCondition = 0
+                END IF
+            CASE "moveHandle"
+                IF mouse.right AND inRadius(x, y, mouse.x - coord.x, mouse.y - coord.y, 20) THEN clickCondition = -1 ELSE clickCondition = 0
+            CASE "moveImage"
+                IF mouse.left THEN clickCondition = -1 ELSE clickCondition = 0
+        END SELECT
+    ELSE
+        clickCondition = 0
+    END IF
+END FUNCTION
 
 SUB resetCurrentImage
     currentImage.xOff = -1
@@ -668,68 +749,112 @@ SUB resetCurrentImage
     currentImage.corner = -1
 END SUB
 
-SUB moveLayerCorner (layer AS layerInfo, corner AS _BYTE, layerID AS INTEGER)
+SUB moveLayerCorner (layer AS layerInfo, corner AS _BYTE, layerID AS INTEGER, canvas AS rectangle)
     IF currentImage.xOff = -1 AND currentImage.yOff = -1 THEN
-        currentImage.xOff = mouse.x - layer.x
-        currentImage.yOff = mouse.y - layer.y
+        currentImage.xOff = INT(mouse.x - (file.xOffset + (layer.x * file.zoom) + canvas.x)) ' offset to image 0-coordinate
+        currentImage.yOff = INT(mouse.y - (file.yOffset + (layer.y * file.zoom) + canvas.y))
         currentImage.coord.x = layer.x
         currentImage.coord.y = layer.y
         currentImage.coord.w = layer.w
         currentImage.coord.h = layer.h
         currentImage.ID = layerID
         currentImage.corner = corner
+        IF corner = 5 THEN _MOUSESHOW "CROSSHAIR"
     END IF
-    xdif = (mouse.x - (currentImage.xOff - layer.w) - layer.x) - layer.w
-    ydif = (mouse.y - (currentImage.yOff - layer.h) - layer.y) - layer.h
+    mXcorr = (currentImage.xOff + file.xOffset + canvas.x)
+    mXcorrected = INT((mouse.x - mXcorr) * (1 / file.zoom))
+    mYcorr = (currentImage.yOff + file.yOffset + canvas.y)
+    mYcorrected = INT((mouse.y - mYcorr) * (1 / file.zoom))
+    mWcorr = (file.xOffset + canvas.x + (layer.x * file.zoom))
+    mWcorrected = INT((mouse.x - mWcorr) * (1 / file.zoom))
+    mHcorr = (file.yOffset + canvas.y + (layer.y * file.zoom))
+    mHcorrected = INT((mouse.y - mHcorr) * (1 / file.zoom))
+    wDif = mWcorr - (layer.w * file.zoom)
+    hDif = mHcoor - (layer.h * file.zoom)
     SELECT CASE corner
         CASE 1
-            layer.x = mouse.x - currentImage.xOff
-            layer.y = mouse.y - currentImage.yOff
-            layer.w = layer.w - (layer.x - currentImage.coord.x)
-            layer.h = layer.h - (layer.y - currentImage.coord.y)
-        CASE 2
-            layer.y = mouse.y - currentImage.yOff
-            layer.w = mouse.x - (currentImage.xOff - layer.w) - layer.x
-            layer.h = layer.h - (layer.y - currentImage.coord.y)
-        CASE 3
             IF shiftDown THEN
-                IF ABS(xdif) >= ABS(ydif) THEN
-                    layer.w = mouse.x - (currentImage.xOff - layer.w) - layer.x
-                    relation = layer.w / currentImage.coord.w
-                    layer.h = layer.h * relation
+                IF ABS(wDif) >= ABS(hDif) THEN
+                    layer.x = mXcorrected
+                    layer.w = INT(layer.w - (layer.x - currentImage.coord.x))
+                    layer.h = INT(layer.w * (currentImage.coord.h / currentImage.coord.w))
+                    layer.y = INT(layer.y + currentImage.coord.h - layer.h)
                 ELSE
-                    layer.h = mouse.y - (currentImage.yOff - layer.h) - layer.y
-                    relation = layer.h / currentImage.coord.h
-                    layer.w = layer.w * relation
+                    layer.y = mYcorrected
+                    layer.h = INT(layer.h - (layer.y - currentImage.coord.y))
+                    layer.w = INT(layer.h * (currentImage.coord.w / currentImage.coord.h))
+                    layer.x = INT(layer.x + currentImage.coord.w - layer.w)
                 END IF
             ELSE
-                layer.x = mouse.x - currentImage.xOff
-                layer.w = layer.w - (layer.x - currentImage.coord.x)
-                layer.h = mouse.y - (currentImage.yOff - layer.h) - layer.y
+                layer.x = mXcorrected
+                layer.y = mYcorrected
+                layer.w = INT(layer.w - (layer.x - currentImage.coord.x))
+                layer.h = INT(layer.h - (layer.y - currentImage.coord.y))
+            END IF
+        CASE 2
+            IF shiftDown THEN
+                IF ABS(wDif) >= ABS(hDif) THEN
+                    layer.w = mWcorrected
+                    layer.h = INT(layer.w * (currentImage.coord.h / currentImage.coord.w))
+                    layer.y = INT(layer.y + currentImage.coord.h - layer.h)
+                ELSE
+                    layer.y = mYcorrected
+                    layer.h = INT(layer.h - (layer.y - currentImage.coord.y))
+                    layer.w = INT(layer.h * (currentImage.coord.w / currentImage.coord.h))
+                END IF
+            ELSE
+                layer.y = mYcorrected
+                layer.h = INT(layer.h - (layer.y - currentImage.coord.y))
+                layer.w = mWcorrected
+            END IF
+        CASE 3
+            IF shiftDown THEN
+                IF ABS(wDif) >= ABS(hDif) THEN
+                    layer.x = mXcorrected
+                    layer.w = INT(layer.w - (layer.x - currentImage.coord.x))
+                    layer.h = INT(layer.w * (currentImage.coord.h / currentImage.coord.w))
+                ELSE
+                    layer.h = mHcorrected
+                    layer.w = INT(layer.h * (currentImage.coord.w / currentImage.coord.h))
+                    layer.x = INT(layer.x + currentImage.coord.w - layer.w)
+                END IF
+            ELSE
+                layer.x = mXcorrected
+                layer.w = INT(layer.w - (layer.x - currentImage.coord.x))
+                layer.h = mHcorrected
             END IF
         CASE 4
             IF shiftDown THEN
-                IF ABS(xdif) >= ABS(ydif) THEN
-                    layer.w = mouse.x - (currentImage.xOff - layer.w) - layer.x
-                    relation = layer.w / currentImage.coord.w
-                    layer.h = layer.h * relation
+                IF ABS(wDif) >= ABS(hDif) THEN
+                    layer.w = mWcorrected
+                    layer.h = INT(layer.w * (currentImage.coord.h / currentImage.coord.w))
                 ELSE
-                    layer.h = mouse.y - (currentImage.yOff - layer.h) - layer.y
-                    relation = layer.h / currentImage.coord.h
-                    layer.w = layer.w * relation
+                    layer.h = mHcorrected
+                    layer.w = INT(layer.h * (currentImage.coord.w / currentImage.coord.h))
                 END IF
             ELSE
-                layer.w = mouse.x - (currentImage.xOff - layer.w) - layer.x
-                layer.h = mouse.y - (currentImage.yOff - layer.h) - layer.y
+                layer.w = mWcorrected
+                layer.h = mHcorrected
             END IF
+        CASE 5
+            layer.x = mXcorrected
+            layer.y = mYcorrected
     END SELECT
-    ' update coordinates
-    currentImage.xOff = mouse.x - layer.x
-    currentImage.yOff = mouse.y - layer.y
-    currentImage.coord.x = layer.x
-    currentImage.coord.y = layer.y
-    currentImage.coord.w = layer.w
-    currentImage.coord.h = layer.h
+    IF layer.w < 1 OR layer.h < 1 THEN
+        layer.x = currentImage.coord.x
+        layer.y = currentImage.coord.y
+        layer.w = currentImage.coord.w
+        layer.h = currentImage.coord.h
+    END IF
+    IF corner < 5 THEN
+        ' update coordinates
+        currentImage.xOff = INT(mouse.x - (file.xOffset + (layer.x * file.zoom) + canvas.x)) ' offset to image 0-coordinate
+        currentImage.yOff = INT(mouse.y - (file.yOffset + (layer.y * file.zoom) + canvas.y))
+        currentImage.coord.x = layer.x
+        currentImage.coord.y = layer.y
+        currentImage.coord.w = layer.w
+        currentImage.coord.h = layer.h
+    END IF
 END SUB
 
 SUB ProcessRGBImage (Image AS LONG, R AS SINGLE, G AS SINGLE, B AS SINGLE, A AS SINGLE)
@@ -814,35 +939,6 @@ FUNCTION pointEmpty (vectorPoint AS vectorPoint)
     END IF
 END FUNCTION
 
-FUNCTION clickCondition (conditionName AS STRING, x AS DOUBLE, y AS DOUBLE, coord AS rectangle)
-    IF mouse.x > coord.x AND mouse.x < coord.x + coord.w AND mouse.y > coord.y AND mouse.y < coord.y + coord.h THEN
-        SELECT CASE conditionName
-            CASE "deletePoint"
-                IF mouse.middle AND inRadius(x, y, mouse.x, mouse.y, 20) AND mouse.middletimedif > .01 THEN
-                    clickCondition = -1
-                ELSEIF ctrlDown AND mouse.left AND inRadius(x, y, mouse.x, mouse.y, 20) AND mouse.lefttimedif > .01 THEN
-                    clickCondition = -1
-                ELSE clickCondition = 0
-                END IF
-            CASE "movePoint"
-                IF mouse.left AND inRadius(x, y, mouse.x, mouse.y, 20) THEN clickCondition = -1 ELSE clickCondition = 0
-            CASE "createPoint"
-                IF mouse.middle AND mouse.middletimedif > .01 THEN
-                    clickCondition = -1
-                ELSEIF ctrlDown AND mouse.left AND mouse.lefttimedif > .01 THEN
-                    clickCondition = -1
-                ELSE clickCondition = 0
-                END IF
-            CASE "moveHandle"
-                IF mouse.right AND inRadius(x, y, mouse.x, mouse.y, 20) THEN clickCondition = -1 ELSE clickCondition = 0
-            CASE "moveImage"
-                IF mouse.left THEN clickCondition = -1 ELSE clickCondition = 0
-        END SELECT
-    ELSE
-        clickCondition = 0
-    END IF
-END FUNCTION
-
 SUB displayList (coord AS rectangle, content AS STRING)
     REDIM text AS STRING
     REDIM AS rectangle mcoord, lcoord, viscoord
@@ -852,6 +948,7 @@ SUB displayList (coord AS rectangle, content AS STRING)
     mcoord.h = 0
     margin = global.margin / 2
     lineheight = _FONTHEIGHT * 1.6
+    COLOR col&("ui"), col&("t")
     SELECT CASE content
         CASE "layers"
             IF UBOUND(layerInfo) > 0 THEN
@@ -861,9 +958,9 @@ SUB displayList (coord AS rectangle, content AS STRING)
                     lcoord.w = coord.w - (margin * 5)
                     lcoord.h = lineheight
                     text = layerInfo(i).name
-                    viswidth = 15
-                    IF LEN(text) * _FONTWIDTH >= lcoord.w - viswidth THEN
-                        cutlength = INT((lcoord.w - viswidth) / _FONTWIDTH)
+                    viswidth = _FONTHEIGHT
+                    IF LEN(text) * _FONTWIDTH >= lcoord.w - viswidth - global.margin THEN
+                        cutlength = INT((lcoord.w - viswidth - global.margin) / _FONTWIDTH)
                         text = MID$(text, 1, cutlength - 3) + "..."
                     END IF
 
@@ -877,10 +974,12 @@ SUB displayList (coord AS rectangle, content AS STRING)
                     viscoord.h = _FONTHEIGHT
                     IF layerInfo(i).enabled THEN
                         rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=bf;angle=0;round=" + LST$(global.round), col&("ui")
+                        checkmargin = 2
+                        drawShape "x=" + LST$(viscoord.x + checkmargin) + ";y=" + LST$(viscoord.y + checkmargin) + ";w=" + LST$(viscoord.w - (checkmargin * 3)) + ";h=" + LST$(viscoord.h - (checkmargin * 2)) + ";shape=check;thickness=2", col&("bg1")
                     ELSE
-                        rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=b;angle=0;round=" + LST$(global.round), col&("ui")
+                        rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=bf;angle=0;round=" + LST$(global.round), col&("ui")
                     END IF
-                    _PRINTSTRING (lcoord.x, lcoord.y), text
+                    _PRINTSTRING (lcoord.x, lcoord.y + 2), text
 
                     IF inBounds(mcoord, viscoord) AND mouse.left AND mouse.lefttimedif > .1 THEN
                         IF layerInfo(i).enabled = 0 THEN layerInfo(i).enabled = -1 ELSE layerInfo(i).enabled = 0
@@ -890,6 +989,42 @@ SUB displayList (coord AS rectangle, content AS STRING)
                     END IF
                 LOOP UNTIL i = UBOUND(layerInfo)
             END IF
+    END SELECT
+END SUB
+
+SUB drawShape (arguments AS STRING, clr AS LONG)
+    DIM AS _FLOAT x, y, w, h, thickness
+    x = getArgumentv(arguments, "x")
+    y = getArgumentv(arguments, "y")
+    w = getArgumentv(arguments, "w")
+    h = getArgumentv(arguments, "h")
+    thickness = getArgumentv(arguments, "thickness")
+    SELECT CASE getArgument$(arguments, "shape")
+        CASE "+"
+            LINE (x + (w / 2) - (thickness / 2), y)-(x + (w / 2) + (thickness / 2), y + h), clr, BF
+            LINE (x, y + (h / 2) - (thickness / 2))-(x + w, y + (h / 2) + (thickness / 2)), clr, BF
+        CASE "check"
+            IF thickness = 0 THEN thickness = 1
+            t = 0: DO: t = t + 1
+                rt = t / 2
+                LINE (x + rt, y + (h / 1.5))-(x + (w / 3) + rt, y + h), clr
+                LINE (x + (w / 3) + rt, y + h)-(x + w + rt, y), clr
+            LOOP UNTIL t = thickness * 2
+        CASE "resize1"
+            IF thickness = 0 THEN thickness = 2
+            cursorsize = 30
+            arrowsize = cursorsize / 2
+            rectangle "x=" + LST$(x - (thickness * 1.2)) + ";y=" + LST$(y - (cursorsize / 2) - (thickness / 1.5)) + ";w=" + LST$(thickness + 1) + ";h=" + LST$(cursorsize) + ";angle=315;style=bf;round=0", clr
+            rectangle "x=" + LST$((x - (cursorsize / 2))) + ";y=" + LST$(y - (cursorsize / 2)) + ";w=" + LST$(thickness) + ";h=" + LST$(arrowsize) + ";angle=0;style=bf;round=0", clr
+            rectangle "x=" + LST$((x - (cursorsize / 2))) + ";y=" + LST$(y - (cursorsize / 2)) + ";w=" + LST$(arrowsize) + ";h=" + LST$(thickness) + ";angle=0;style=bf;round=0", clr
+            rectangle "x=" + LST$((x + (cursorsize / 3)) - (thickness / 2)) + ";y=" + LST$(y + (cursorsize / 3) - arrowsize + (thickness / 2)) + ";w=" + LST$(thickness) + ";h=" + LST$(arrowsize) + ";angle=0;style=bf;round=0", clr
+            rectangle "x=" + LST$((x + (cursorsize / 3)) - arrowsize + (thickness / 2)) + ";y=" + LST$(y + (cursorsize / 3) - (thickness / 2)) + ";w=" + LST$(arrowsize) + ";h=" + LST$(thickness) + ";angle=0;style=bf;round=0", clr
+        CASE "resize2"
+            IF thickness = 0 THEN thickness = 2
+            t = 0: DO: t = t + 1
+                rt = t / 2
+                LINE (x + (cursorsize / 2) + rt, y - (cursorsize / 2))-(x - (cursorsize / 2) + rt, y + (cursorsize / 2)), clr
+            LOOP UNTIL t = thickness * 2
     END SELECT
 END SUB
 
