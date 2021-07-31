@@ -65,8 +65,8 @@ SUB generateVectorPreview (layer AS layerInfo, maxpoints AS INTEGER, roundFactor
             'PSET (vectorPoints(contentid, i).x + bVecX * (s / sampleCount), vectorPoints(contentid, i).y + bVecY * (s / sampleCount)), _RGBA(255, 255, 255, 20)
             fx = vectorPoints(contentid, i).x + pX
             fy = vectorPoints(contentid, i).y + pY
-            fx = (layer.x * file.zoom) + (fx * file.zoom)
-            fx = (layer.y * file.zoom) + (fx * file.zoom)
+            fx = (layer.x * file.zoom) + (fx * file.zoom) + file.xOffset
+            fy = (layer.y * file.zoom) + (fy * file.zoom) + file.yOffset
 
             'IF fx > coord.x AND fx < coord.x + coord.w AND fy > coord.y AND fy < coord.y + coord.h THEN
                 PSET (fx, fy), _RGBA(255, 255, 255, 255)
@@ -140,8 +140,8 @@ SUB displayPoints (layer AS layerInfo, coord AS rectangle)
         i = 0: DO: i = i + 1
             'IF vectorPoints(contentid, i).x > coord.x AND vectorPoints(contentid, i).x < coord.x + coord.w AND vectorPoints(contentid, i).y > coord.y AND vectorPoints(contentid, i).y < coord.y + coord.h THEN
                 ' base point
-                px = (layer.x * file.zoom) + (vectorPoints(contentid, i).x * file.zoom)
-                py = (layer.y * file.zoom) + (vectorPoints(contentid, i).y * file.zoom)
+                px = (layer.x * file.zoom) + (vectorPoints(contentid, i).x * file.zoom) + file.xOffset
+                py = (layer.y * file.zoom) + (vectorPoints(contentid, i).y * file.zoom) + file.yOffset
                 IF mouse.noMovement < mouse.movementTimer THEN LINE (px - pointsize, py - pointsize)-(px + pointsize, py + pointsize), _RGBA(0, 150, 255, 255), BF
                 PSET (px, py), _RGBA(255, 255, 255, 255)
 
@@ -159,8 +159,8 @@ SUB displayPoints (layer AS layerInfo, coord AS rectangle)
                     IF mouse.x > coord.x AND mouse.x < coord.x + coord.w AND mouse.y > coord.y AND mouse.y < coord.y + coord.h THEN
                         HoffX = vectorPoints(contentid, i).handlex - vectorPoints(contentid, i).x
                         HoffY = vectorPoints(contentid, i).handley - vectorPoints(contentid, i).y
-                        vectorPoints(contentid, i).x = (mouse.x - coord.x - (layer.x * file.zoom)) * (1 / file.zoom)
-                        vectorPoints(contentid, i).y = (mouse.y - coord.y - (layer.y * file.zoom)) * (1 / file.zoom)
+                        vectorPoints(contentid, i).x = INT((mouse.x - file.xOffset - coord.x - (layer.x * file.zoom)) * (1 / file.zoom))
+                        vectorPoints(contentid, i).y = INT((mouse.y - file.yOffset - coord.y - (layer.y * file.zoom)) * (1 / file.zoom))
                         vectorPoints(contentid, i).handlex = vectorPoints(contentid, i).x + HoffX
                         vectorPoints(contentid, i).handley = vectorPoints(contentid, i).y + HoffY
                         activeGrab = i
@@ -169,16 +169,16 @@ SUB displayPoints (layer AS layerInfo, coord AS rectangle)
                 END IF
 
                 ' handle
-                hx = (layer.x * file.zoom) + (vectorPoints(contentid, i).handlex * file.zoom)
-                hy = (layer.y * file.zoom) + (vectorPoints(contentid, i).handley * file.zoom)
+                hx = (layer.x * file.zoom) + (vectorPoints(contentid, i).handlex * file.zoom) + file.xOffset
+                hy = (layer.y * file.zoom) + (vectorPoints(contentid, i).handley * file.zoom) + file.yOffset
                 IF pointDeleted = 0 AND mouse.noMovement < mouse.movementTimer THEN
                     LINE (px, py)-(hx, hy), _RGBA(255, 255, 255, 100)
                     CIRCLE (hx, hy), pointsize * 0.75, _RGBA(255, 205, 11, 255)
                     PAINT (hx, hy), _RGBA(255, 205, 11, 255), _RGBA(255, 205, 11, 255)
 
                     IF clickCondition("moveHandle", hx, hy, coord, coord) OR activeHandleGrab = i THEN
-                        vectorPoints(contentid, i).handlex = (mouse.x - coord.x - (layer.x * file.zoom)) * (1 / file.zoom)
-                        vectorPoints(contentid, i).handley = (mouse.y - coord.y - (layer.y * file.zoom)) * (1 / file.zoom)
+                        vectorPoints(contentid, i).handlex = INT((mouse.x - file.xOffset - coord.x - (layer.x * file.zoom)) * (1 / file.zoom))
+                        vectorPoints(contentid, i).handley = INT((mouse.y - file.yOffset - coord.y - (layer.y * file.zoom)) * (1 / file.zoom))
                         activeHandleGrab = i
                         roundsSinceEdit = 0
                     END IF
@@ -188,7 +188,11 @@ SUB displayPoints (layer AS layerInfo, coord AS rectangle)
     END IF
 
     IF clickCondition("createPoint", 0, 0, coord, coord) THEN
-        createPoint mouse.x - coord.x, mouse.y - coord.y, mouse.x - coord.x, mouse.y - coord.y, contentid
+        mXcorrected = mouse.x - (file.xOffset + coord.x)
+        mXcorrected = INT(mXcorrected * (1 / file.zoom))
+        mYcorrected = mouse.y - (file.yOffset + coord.y)
+        mYcorrected = INT(mYcorrected * (1 / file.zoom))
+        createPoint mXcorrected, mYcorrected, mXcorrected, mYcorrected, contentid
         roundsSinceEdit = 0
     END IF
 END SUB
@@ -196,7 +200,11 @@ END SUB
 SUB createPoint (x AS INTEGER, y AS INTEGER, handlex AS INTEGER, handley AS INTEGER, contentid AS INTEGER)
     maxPoints = getMaxPoints(contentid) + 1
     IF UBOUND(vectorPoints, 1) < contentid THEN
-        REDIM _PRESERVE vectorPoints(contentid, UBOUND(vectorPoints)) AS vectorPoint
+        REDIM bufferVectorPoints(UBOUND(vectorPoints, 1), UBOUND(vectorPoints, 2)) AS vectorPoint
+        copyVectorPoints bufferVectorPoints()
+        REDIM vectorPoints(contentid, UBOUND(vectorPoints, 2)) AS vectorPoint
+        pasteVectorPoints bufferVectorPoints()
+        ERASE bufferVectorPoints
     END IF
     IF UBOUND(vectorPoints, 2) < maxPoints THEN
         REDIM _PRESERVE vectorPoints(UBOUND(vectorPoints, 1), maxPoints) AS vectorPoint
@@ -205,6 +213,30 @@ SUB createPoint (x AS INTEGER, y AS INTEGER, handlex AS INTEGER, handley AS INTE
     vectorPoints(contentid, maxPoints).y = y
     vectorPoints(contentid, maxPoints).handlex = handlex
     vectorPoints(contentid, maxPoints).handley = handley
+END SUB
+
+SUB copyVectorPoints (buffer() AS vectorPoint)
+    IF UBOUND(buffer, 1) > 0 THEN
+        DO: one = one + 1
+            IF UBOUND(buffer, 2) > 0 THEN
+                two = 0: DO: two = two + 1
+                    SWAP buffer(one, two), vectorPoints(one, two)
+                LOOP UNTIL two = UBOUND(buffer, 2)
+            END IF
+        LOOP UNTIL one = UBOUND(buffer, 1)
+    END IF
+END SUB
+
+SUB pasteVectorPoints (buffer() AS vectorPoint)
+    IF UBOUND(buffer, 1) > 0 THEN
+        DO: one = one + 1
+            IF UBOUND(buffer, 2) > 0 THEN
+                two = 0: DO: two = two + 1
+                    SWAP vectorPoints(one, two), buffer(one, two)
+                LOOP UNTIL two = UBOUND(buffer, 2)
+            END IF
+        LOOP UNTIL one = UBOUND(buffer, 1)
+    END IF
 END SUB
 
 FUNCTION getMaxPoints (contentid AS INTEGER)

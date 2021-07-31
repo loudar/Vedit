@@ -90,7 +90,7 @@ FilterIndex& = SaveCall.nFilterIndex
 END IF
 
 $IF 64BIT THEN
-count = filterindex&
+count = FilterIndex&
 s$ = filter$
 
 FOR d = 1 TO count

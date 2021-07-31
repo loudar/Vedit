@@ -133,10 +133,10 @@ SUB adjustZoom (coord AS rectangle)
 END SUB
 
 SUB saveFileDialog
-    filter$ = "VFI (*.vfi)|*.VFI" + CHR$(0)
-    'filter$ = "VFI (*.vfi)|*.VFI|PNG (*.png)|*.PNG|JPG/JPEG (*.jpeg)|*.JPEG" + CHR$(0)
+    'filter$ = "PNG (*.png)|*.PNG|VFI (*.vfi)|*.VFI" + CHR$(0)
+    filter$ = "JPG (*.jpg)|*.jpg|PNG (*.png)|*.png|VFI (*.vfi)|*.vfi" + CHR$(0)
     flags& = OFN_OVERWRITEPROMPT + OFN_NOCHANGEDIR '   add flag constants here
-    targetfile$ = GetSaveFileName$("Vedit - Save File", ".\", filter$, 1, flags&, _WINDOWHANDLE)
+    targetfile$ = GetSaveFileName$("Vedit - Save File", ".\", filter$, 3, flags&, _WINDOWHANDLE)
     saveFile targetfile$
 END SUB
 
@@ -148,14 +148,19 @@ SUB openFileDialog
 END SUB
 
 SUB saveFile (targetFile AS STRING)
-    format$ = MID$(targetFile$, _INSTRREV(targetFile$, "."), LEN(targetFile$))
-    SELECT CASE format$
+    format$ = MID$(targetFile, _INSTRREV(targetFile, "."), LEN(targetFile))
+    REDIM img AS LONG
+    SELECT CASE LCASE$(format$)
         CASE ".vfi"
-            writeVFI targetFile$
+            writeVFI targetFile
         CASE ".png"
-
-        CASE ".jpeg"
-
+            makeExportIMG file.w, file.h, img
+            success = SaveImage(targetFile, img, 0, 0, _WIDTH(img) - 1, _HEIGHT(img) - 1)
+            _FREEIMAGE img
+        CASE ".jpg"
+            makeExportIMG file.w, file.h, img
+            success = SaveImage(targetFile, img, 0, 0, _WIDTH(img) - 1, _HEIGHT(img) - 1)
+            _FREEIMAGE img
     END SELECT
 END SUB
 
@@ -395,14 +400,34 @@ END SUB
 
 SUB openFile (sourceFile AS STRING)
     IF sourceFile = "" THEN
-        newFile _CWD$ + "/untitled.vfi", "untitled", 1000, 1000, 1, 0, 0, 1
+        newFile _CWD$ + "\untitled.vfi", "untitled", 1000, 1000, 1, 0, 0, 1
     END IF
     format$ = MID$(sourceFile, _INSTRREV(sourceFile, "."), LEN(sourceFile))
     SELECT CASE format$
         CASE ".vfi"
             loadVFI sourceFile
         CASE ".png"
-        CASE ".jpeg"
+            namestart = _INSTRREV(sourceFile, "\")
+            nameend = _INSTRREV(sourceFile, ".")
+            name$ = MID$(sourceFile, namestart + 1, nameend - namestart - 1)
+            bufImg = _LOADIMAGE(sourceFile, 32)
+            IF bufImg < -1 THEN
+                w = _WIDTH(bufImg)
+                h = _HEIGHT(bufImg)
+                _FREEIMAGE bufImg
+                newFile sourceFile, name$, w, h, 1, 0, 0, 1
+            END IF
+        CASE ".jpg"
+            namestart = _INSTRREV(sourceFile, "\")
+            nameend = _INSTRREV(sourceFile, ".")
+            name$ = MID$(sourceFile, namestart + 1, nameend - namestart - 1)
+            bufImg = _LOADIMAGE(sourceFile, 32)
+            IF bufImg < -1 THEN
+                w = _WIDTH(bufImg)
+                h = _HEIGHT(bufImg)
+                _FREEIMAGE bufImg
+                newFile sourceFile, name$, w, h, 1, 0, 0, 1
+            END IF
     END SELECT
     currentview = "main"
 END SUB
@@ -423,30 +448,26 @@ SUB fileDropCheck
             SELECT CASE droptype$
                 CASE "file"
                     IF MID$(df$, LEN(df$) - 3, 4) = ".png" OR MID$(df$, LEN(df$) - 3, 4) = ".jpg" THEN
-                        IF img < 0 THEN _FREEIMAGE img
+                        IF img < -1 THEN _FREEIMAGE img
                         img = _LOADIMAGE(df$, 32)
                         ar = _WIDTH(img) / _HEIGHT(img)
                         filear = file.w / file.h
-                        'IF ar = filear THEN
-                        '    w = file.w
-                        '    h = file.h
-                        '    x = 0
-                        '    y = 0
-                        'ELSEIF ar > filear THEN 'if new layer is wider than artboard
-                        '    w = file.w
-                        '    h = w / ar
-                        '    x = 0
-                        '    y = (file.h - _HEIGHT(img)) / 2
-                        'ELSEIF ar < filear THEN 'if new layer is taller than artboard
-                        '    h = file.h
-                        '    w = h * ar
-                        '    x = (file.w - _WIDTH(img)) / 2
-                        '    y = 0
-                        'ELSE
-                        w = _WIDTH(img)
-                        h = _HEIGHT(img)
-                        x = 0
-                        y = 0
+                        IF ar = filear THEN
+                            w = file.w
+                            h = file.h
+                            x = 0
+                            y = 0
+                        ELSEIF ar > filear THEN 'if new layer is wider than artboard
+                            w = file.w
+                            h = w / ar
+                            x = 0
+                            y = (file.h - h) / 2
+                        ELSEIF ar < filear THEN 'if new layer is taller than artboard
+                            h = file.h
+                            w = h * ar
+                            x = (file.w - w) / 2
+                            y = 0
+                        END IF
                         'END IF
                         p = 0: DO: p = p + 1
                         LOOP UNTIL p = LEN(df$) OR MID$(df$, LEN(df$) + 1 - p, 1) = "\"
@@ -475,7 +496,11 @@ SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS
     file.activeLayer = layerId
     SELECT CASE layerType
         CASE "vector"
+            REDIM bufferVectorPoints(UBOUND(vectorPoints, 1), UBOUND(vectorPoints, 2)) AS vectorPoint
+            copyVectorPoints bufferVectorPoints()
             REDIM _PRESERVE vectorPoints(UBOUND(vectorPoints, 1) + 1, UBOUND(vectorPoints, 2)) AS vectorPoint
+            pasteVectorPoints bufferVectorPoints()
+            ERASE bufferVectorPoints
             REDIM _PRESERVE vectorPreview(UBOUND(vectorPreview) + 1) AS vectorPreview
         CASE "image"
             IF contentid > UBOUND(imageLayer) THEN REDIM _PRESERVE imageLayer(contentid) AS imageLayer
@@ -531,11 +556,32 @@ FUNCTION getColumn (column AS _INTEGER64)
     getColumn = 10 + (_FONTWIDTH * column)
 END FUNCTION
 
+SUB makeExportIMG (w AS _INTEGER64, h AS _INTEGER64, IMG AS LONG)
+    IMG = _NEWIMAGE(w, h, 32)
+    _DEST IMG
+    REDIM coord AS rectangle
+    coord.w = w
+    coord.h = h
+    'LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), _RGBA(150, 150, 150, 255), BF
+    IF UBOUND(layerInfo) > 0 THEN
+        layer = 0: DO: layer = layer + 1
+            SELECT CASE layerInfo(layer).type
+                CASE "vector"
+                    IF layerInfo(layer).enabled THEN displayLines layerInfo(layer), layerIsActive, coord, IMG
+                CASE "image"
+                    IF layerInfo(layer).enabled THEN displayImageLayer layerInfo(layer), layerIsActive, layer, coord
+            END SELECT
+        LOOP UNTIL layer >= UBOUND(layerInfo)
+    END IF
+    _DEST 0
+END SUB
+
 SUB displayLayers (coord AS rectangle)
     REDIM canvasImg AS LONG
     canvasImg = _NEWIMAGE(coord.w, coord.h, 32)
     _DEST canvasImg
-    LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), _RGBA(150, 150, 150, 255), BF
+    'LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), _RGBA(150, 150, 150, 255), BF
+    LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), _RGBA(255, 255, 255, 255), B
     IF UBOUND(layerInfo) > 0 THEN
         IF file.activeLayer > UBOUND(layerInfo) THEN file.activeLayer = UBOUND(layerInfo)
         layer = 0: DO: layer = layer + 1
@@ -636,6 +682,7 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
         ELSE
             _MOUSESHOW "TOPLEFT_BOTTOMRIGHT"
         END IF
+        blockCursor = -1
     ELSE
         IF global.altCursors THEN _MOUSESHOW "DEFAULT"
     END IF
@@ -653,6 +700,7 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
         ELSE
             _MOUSESHOW "TOPRIGHT_BOTTOMLEFT"
         END IF
+        blockCursor = -1
     ELSE
         IF global.altCursors THEN _MOUSESHOW "DEFAULT"
     END IF
@@ -671,6 +719,7 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
         ELSE
             _MOUSESHOW "TOPRIGHT_BOTTOMLEFT"
         END IF
+        blockCursor = -1
     ELSE
         IF global.altCursors THEN _MOUSESHOW "DEFAULT"
     END IF
@@ -689,6 +738,7 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
         ELSE
             _MOUSESHOW "TOPLEFT_BOTTOMRIGHT"
         END IF
+        blockCursor = -1
     ELSE
         IF global.altCursors THEN _MOUSESHOW "DEFAULT"
     END IF
@@ -700,7 +750,11 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
 
     ' moving image
     IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 5 THEN resetCurrentImage
-    IF layerIsActive AND (clickCondition("moveImage", 0, 0, coord, canvas) OR (mouse.left AND (currentImage.corner = 5 OR currentImage.corner < 1))) AND NOT blockMove THEN
+    REDIM mcoord AS rectangle
+    mcoord.x = mouse.x - canvas.x
+    mcoord.y = mouse.y - canvas.y
+    IF inBounds(mcoord, coord) THEN glutSetCursor GLUT_CURSOR_CYCLE ELSE IF NOT blockCursor THEN _MOUSESHOW "DEFAULT"
+    IF layerIsActive AND (inBounds(mcoord, coord) AND mouse.left) OR (mouse.left AND (currentImage.corner = 5)) AND NOT blockMove THEN
         moveLayerCorner layer, 5, layerID, canvas
     END IF
 END SUB
@@ -710,8 +764,6 @@ FUNCTION clickCondition (conditionName AS STRING, x AS DOUBLE, y AS DOUBLE, coor
     mcoord.x = mouse.x - canvas.x
     mcoord.y = mouse.y - canvas.y
     IF inBounds(mcoord, coord) THEN
-        'IF mouse.x >= coord.x AND mouse.x <= coord.x + coord.w AND mouse.y >= coord.y AND mouse.y <= coord.y + coord.h THEN
-        LINE (coord.x, coord.y)-(coord.x + coord.w, coord.y + coord.h), _RGBA(255, 255, 0, 255), B
         SELECT CASE conditionName
             CASE "deletePoint"
                 IF mouse.middle AND inRadius(x, y, mouse.x - coord.x, mouse.y - coord.y, 20) AND mouse.middletimedif > .01 THEN
@@ -761,7 +813,6 @@ SUB moveLayerCorner (layer AS layerInfo, corner AS _BYTE, layerID AS INTEGER, ca
         currentImage.coord.h = layer.h
         currentImage.ID = layerID
         currentImage.corner = corner
-        IF corner = 5 THEN _MOUSESHOW "CROSSHAIR"
     END IF
     mXcorr = (currentImage.xOff + file.xOffset + canvas.x)
     mXcorrected = INT((mouse.x - mXcorr) * (1 / file.zoom))

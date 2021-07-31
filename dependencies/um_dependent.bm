@@ -62,6 +62,8 @@ SUB checkForSpecialText (this AS element)
             IF UBOUND(layerInfo) >= file.activeLayer THEN this.buffer = LST$(layerInfo(file.activeLayer).w)
         CASE "layer.h"
             IF UBOUND(layerInfo) >= file.activeLayer THEN this.buffer = LST$(layerInfo(file.activeLayer).h)
+        CASE "file.file"
+            this.buffer = file.file
         CASE "file.zoom"
             this.buffer = LST$(INT(file.zoom * 100))
     END SELECT
