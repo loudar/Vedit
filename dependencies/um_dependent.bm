@@ -43,6 +43,8 @@ SUB doThis (arguments AS STRING, recursivecall AS _BYTE) 'program-specific actio
     SELECT CASE MID$(action$, 1, INSTR(action$, ".") - 1)
         CASE "view"
             currentview = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
+        CASE "tool"
+            file.activeTool = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
     END SELECT
 END SUB
 
@@ -66,6 +68,45 @@ SUB checkForSpecialText (this AS element)
             this.buffer = file.file
         CASE "file.zoom"
             this.buffer = LST$(INT(file.zoom * 100))
+    END SELECT
+END SUB
+
+
+SUB checkGlobal (this AS element)
+    SELECT CASE this.name
+        CASE "colorscheme"
+            this.buffer = _TRIM$(global.scheme)
+        CASE "partialsearch"
+            this.state = global.partialsearch
+        CASE "license"
+            this.buffer = global.license
+        CASE "windowsize"
+            this.value = global.windowsize
+            this.buffer = MID$(LST$(this.value), 1, 4)
+        CASE "showgrid"
+            this.state = file.showgrid
+        CASE "snapgrid"
+            this.state = file.snapgrid
+    END SELECT
+END SUB
+
+SUB setGlobal (globalname AS STRING, value AS STRING)
+    SELECT CASE globalname
+        CASE "colorscheme"
+            global.scheme = value
+            saveConfig
+            loadConfig
+        CASE "partialsearch"
+            global.partialsearch = VAL(value)
+        CASE "license"
+            global.license = value
+        CASE "windowsize"
+            global.windowsize = VAL(value)
+        CASE "showgrid"
+            file.showgrid = VAL(value)
+        CASE "snapgrid"
+            file.snapgrid = VAL(value)
+        CASE ELSE: EXIT SUB
     END SELECT
 END SUB
 
@@ -308,15 +349,22 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
             PAINT (val_start + (this.value * (val_end - val_start)), cy), this.drawcolor, this.drawcolor
             LINE (val_start, cy)-(val_end, cy + 1), this.drawcolor, BF
         CASE "list"
-            coord.x = coord.x + (2 * global.padding)
-            coord.y = coord.y + global.padding
             displayList coord, this.content
-            rectangle "x=" + LST$(coord.x - (2 * global.padding)) + ";y=" + LST$(coord.y - global.padding) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
+            rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
         CASE "canvas"
             rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=bf;angle=0;round=0", _RGBA(0, 0,0, 255)
             rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=b;angle=0;round=0", this.drawcolor
             adjustZoom coord
             displayLayers coord
+        CASE "tool"
+            rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
+            file$ = _TRIM$(global.intpath) + this.content
+            IF _FILEEXISTS(file$) THEN
+                img = _LOADIMAGE(file$, 32)
+                dist = global.padding
+                _PUTIMAGE (coord.x + dist, coord.y + dist)-(coord.x + ((_WIDTH(img) / _HEIGHT(img)) * (coord.h - dist)), coord.y + (coord.h - dist)), img
+                _FREEIMAGE img
+            END IF
     END SELECT
     displaySelection this, elementindex, coord, currentfont
 END SUB

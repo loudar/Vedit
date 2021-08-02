@@ -378,36 +378,6 @@ SUB loadUI (reload AS _BYTE)
     END IF
 END SUB
 
-SUB checkGlobal (this AS element)
-    SELECT CASE this.name
-        CASE "colorscheme"
-            this.buffer = _TRIM$(global.scheme)
-        CASE "partialsearch"
-            this.state = global.partialsearch
-        CASE "license"
-            this.buffer = global.license
-        CASE "windowsize"
-            this.value = global.windowsize
-            this.buffer = MID$(LST$(this.value), 1, 4)
-    END SELECT
-END SUB
-
-SUB setGlobal (globalname AS STRING, value AS STRING)
-    SELECT CASE globalname
-        CASE "colorscheme"
-            global.scheme = value
-            saveConfig
-            loadConfig
-        CASE "partialsearch"
-            global.partialsearch = VAL(value)
-        CASE "license"
-            global.license = value
-        CASE "windowsize"
-            global.windowsize = VAL(value)
-        CASE ELSE: EXIT SUB
-    END SELECT
-END SUB
-
 SUB proofPath (pathtoproof AS STRING) 'creates a folder if it doesn't exist
     pathtoproof = _TRIM$(pathtoproof)
     IF _DIREXISTS(pathtoproof) = 0 THEN
@@ -1188,6 +1158,8 @@ FUNCTION getEWidth$ (e AS INTEGER, currentfont AS LONG)
         END IF
     ELSEIF elements(e).w = "full" THEN
         getEWidth$ = LST$(_WIDTH(0) - VAL(getEXPos$(e, currentfont)) - global.margin)
+    ELSEIF elements(e).w = "span" THEN
+        getEWidth$ = LST$(VAL(getEXPos$(e + 1, currentfont)) - (VAL(getEXPos$(e - 1, currentfont)) + (VAL(getEWidth$(e - 1, currentfont)))) - (2 * global.margin))
     ELSEIF INSTR(elements(e).w, "/m") THEN ' REPLACE WITH MATH PARSER
         firstpart$ = MID$(elements(e).w, 1, INSTR(elements(e).w, "/m") - 1)
         secondpart$ = MID$(elements(e).w, INSTR(elements(e).w, "/m") + 2, LEN(elements(e).w))

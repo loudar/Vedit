@@ -1,6 +1,6 @@
 type=title;x=margin;y=margin;w=flex;h=25;color=ui;hovercolor=ui;text=Settings;name=title
-type=text;x=prev;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=License status:;name=licensestatus;action=check.license
-type=text;x=prevr;y=prev;w=flex;h=25;color=green;hovercolor=ui2;text=Get license;name=getlicense;action=web;url=https://gum.co/datanet
+/type=text;x=prev;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=License status:;name=licensestatus;action=check.license
+/type=text;x=prevr;y=prev;w=flex;h=25;color=green;hovercolor=ui2;text=Get license;name=getlicense;action=web;url=https://gum.co/datanet
 /type=radiobutton;x=margin;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=Radio button 1;name=radio1;group=1
 /type=radiobutton;x=prev;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=Radio button 2;name=radio2;group=1
 type=dropdown;x=margin;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=Color scheme:;name=colorscheme;options=bright/dark/targon/teal/urban/sci/discord/beach/monochrome
