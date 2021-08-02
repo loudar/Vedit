@@ -143,7 +143,6 @@ SUB adjustZoom (coord AS rectangle)
 END SUB
 
 SUB saveFileDialog
-    'filter$ = "PNG (*.png)|*.PNG|VFI (*.vfi)|*.VFI" + CHR$(0)
     filter$ = "JPG (*.jpg)|*.jpg|PNG (*.png)|*.png|VFI (*.vfi)|*.vfi" + CHR$(0)
     flags& = OFN_OVERWRITEPROMPT + OFN_NOCHANGEDIR + SAVE_DIALOG '   add flag constants here
     targetfile$ = ComDlgFileName("Vedit - Save File", ".\", filter$, 3, flags&)
