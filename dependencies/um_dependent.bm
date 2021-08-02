@@ -357,7 +357,8 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
             adjustZoom coord
             displayLayers coord
         CASE "tool"
-            rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
+            IF this.name = file.activeTool THEN rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=bf;angle=" + this.angle + ";round=" + this.round, this.drawcolor
+            rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=b;angle=" + this.angle + ";round=" + this.round, this.drawcolor
             file$ = _TRIM$(global.intpath) + this.content
             IF _FILEEXISTS(file$) THEN
                 img = _LOADIMAGE(file$, 32)

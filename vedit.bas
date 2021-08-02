@@ -184,7 +184,7 @@ SUB writeVFI (targetFile AS STRING)
     IF UBOUND(layerinfo) > 0 THEN
         i = 0: DO: i = i + 1
             IF layerInfo(i).type = "image" THEN
-                info$ = "type=layerInfo;layert=image;width=" + LST$(layerInfo(i).w) + ";height=" + LST$(layerInfo(i).h) + ";x=" + LST$(layerInfo(i).x) + ";y=" + LST$(layerInfo(i).y) + ";name=" + layerInfo(i).name + ";contentid=" + LST$(layerInfo(i).contentid) + ";file=" + _TRIM$(imageLayer(layerInfo(i).contentid).file) + CHR$(13)
+                info$ = "type=layerInfo;layert=image;width=" + LST$(layerInfo(i).w) + ";height=" + LST$(layerInfo(i).h) + ";x=" + LST$(layerInfo(i).x) + ";y=" + LST$(layerInfo(i).y) + ";name=" + layerInfo(i).name + ";contentid=" + LST$(layerInfo(i).contentid) + CHR$(13)
                 'PRINT #freen, info$
                 PUT #freen, , info$
             ELSE
@@ -237,6 +237,7 @@ SUB loadVFI (sourceFile AS STRING)
     REDIM _PRESERVE vectorPoints(0, 0) AS vectorPoint
     REDIM _PRESERVE vectorPreview(0) AS vectorPreview
     REDIM position AS _INTEGER64
+    file.activeTool = "move"
 
     COLOR _RGBA(255, 255, 255, 255), _RGBA(0, 0, 0, 255)
     _PRINTSTRING (getColumn(10), getRow(1)), "Opening file " + sourceFile + "...": _DISPLAY
@@ -247,7 +248,8 @@ SUB loadVFI (sourceFile AS STRING)
             LINE INPUT #freen, lineinfo$
             position = SEEK(freen)
             parseFileInfo lineinfo$, sourceFile, position
-        LOOP UNTIL EOF(freen) = -1
+            SEEK freen, position
+        LOOP UNTIL EOF(freen)
     END IF
     CLOSE #freen
 END SUB
@@ -276,6 +278,8 @@ SUB parseFileInfo (source AS STRING, sourceFile AS STRING, position AS _INTEGER6
                             file.yOffset = VAL(value)
                         CASE "activeLayer"
                             file.activeLayer = VAL(value)
+                        CASE "activeTool"
+                            file.activeTool = value
                         CASE "name"
                             file.name = value
                         CASE "file"
@@ -644,14 +648,25 @@ SUB displayGrid (canvas AS LONG)
 
         _DEST grid.img
         gridsize = 10 * file.zoom
-        IF file.w > gridsize THEN
+        IF file.w * file.zoom > gridsize THEN
             xpos = 0: DO: xpos = xpos + gridsize
                 LINE (xpos, 0)-(xpos, (file.h * file.zoom)), _RGBA(255, 255, 255, 85)
             LOOP UNTIL xpos + gridsize >= file.w * file.zoom
         END IF
-        IF file.w > gridsize THEN
+        IF file.h * file.zoom > gridsize THEN
             ypos = 0: DO: ypos = ypos + gridsize
                 LINE (0, ypos)-((file.w * file.zoom), ypos), _RGBA(255, 255, 255, 85)
+            LOOP UNTIL ypos + gridsize >= file.h * file.zoom
+        END IF
+        gridsize = 10 * gridsize
+        IF file.w * file.zoom > gridsize THEN
+            xpos = 0: DO: xpos = xpos + gridsize
+                LINE (xpos, 0)-(xpos, (file.h * file.zoom)), _RGBA(255, 255, 255, 150)
+            LOOP UNTIL xpos + gridsize >= file.w * file.zoom
+        END IF
+        IF file.h * file.zoom > gridsize THEN
+            ypos = 0: DO: ypos = ypos + gridsize
+                LINE (0, ypos)-((file.w * file.zoom), ypos), _RGBA(255, 255, 255, 150)
             LOOP UNTIL ypos + gridsize >= file.h * file.zoom
         END IF
     END IF
@@ -700,18 +715,19 @@ SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS IN
     layerCoord.y = (layer.y * file.zoom) + file.yOffset
     layerCoord.w = (layer.w * file.zoom)
     layerCoord.h = (layer.h * file.zoom)
-    IF imageLayer(contentid).img > -2 THEN
-        imageLayer(contentid).img = _LOADIMAGE(imageLayer(contentid).file, 32)
-        IF imageLayer(contentid).img > -2 THEN
-            imageLayer(contentid).img = _NEWIMAGE(layer.w, layer.h, 32)
-        END IF
-        imageLayer(contentid).w = _WIDTH(imageLayer(contentid).img)
-        imageLayer(contentid).h = _HEIGHT(imageLayer(contentid).img)
-        layer.w = imageLayer(contentid).w
-        layer.h = imageLayer(contentid).h
-        layerCoord.w = (layer.w * file.zoom)
-        layerCoord.h = (layer.h * file.zoom)
-    END IF
+    'IF imageLayer(contentid).img > -2 THEN
+    '    IF _FILEEXISTS(imageLayer(contentid).file) THEN
+    '        imageLayer(contentid).img = _LOADIMAGE(imageLayer(contentid).file, 32)
+    '    ELSE
+    '        imageLayer(contentid).img = _NEWIMAGE(layer.w, layer.h, 32)
+    '    END IF
+    '    imageLayer(contentid).w = _WIDTH(imageLayer(contentid).img)
+    '    imageLayer(contentid).h = _HEIGHT(imageLayer(contentid).img)
+    '    layer.w = imageLayer(contentid).w
+    '    layer.h = imageLayer(contentid).h
+    '    layerCoord.w = (layer.w * file.zoom)
+    '    layerCoord.h = (layer.h * file.zoom)
+    'END IF
     IF imageLayer(contentid).img < -1 AND layer.w > 0 AND layer.h > 0 THEN _PUTIMAGE (layerCoord.x, layerCoord.y)-(layerCoord.x + layerCoord.w, layerCoord.y + layerCoord.h), imageLayer(contentid).img
     IF layerIsActive THEN
         displayLayerOutline layerCoord, layer, layerIsActive, layerID, canvas
