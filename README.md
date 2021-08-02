@@ -8,4 +8,4 @@ Vedit is an open source iamge editing project, written in QB64 (and bits of C++)
 Feel free to fork this repository and change/add stuff! If we like what you added and feel like you improved the program, we will merge it into release. Even reporting issues helps a lot for improving the software, so please don't hesitate to do so!
 
 # Screenshots
-![Screenshot 2021-08-02 041913](https://user-images.githubusercontent.com/35202909/127796009-7c62175f-21bf-4456-b600-707ec05faaf3.png)
+![Screenshot 2021-08-02 134928](https://user-images.githubusercontent.com/35202909/127857585-f0cb38aa-ff08-47a1-a482-9d4e1446ad94.png)
