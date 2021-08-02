@@ -1,109 +1,101 @@
-FUNCTION GetOpenFileName$ (Title$, InitialDir$, Filter$, FilterIndex&, Flags&&, hWnd AS _INTEGER64)
-    '  Title$      - The dialog title.
-    '  InitialDir$ - If this left blank, it will use the directory where the last opened file is
-    '  located. Specify ".\" if you want to always use the current directory.
-    '  Filter$     - File filters separated by pipes (|) in the same format as using VB6 common dialogs.
-    '  FilterIndex - The initial file filter to use. Will be altered by user during the call.
-    '  Flags&      - Dialog flags. Will be altered by the user during the call.
-    '  hWnd&       - Your program's window handle that should be aquired by the FindWindow function.
-    '
-    ' Returns: Blank when cancel is clicked otherwise, the file name selected by the user.
-    ' FilterIndex and Flags& will be changed depending on the user's selections.
- 
-    hWnd = _WINDOWHANDLE
-DIM OpenCall AS FILEDIALOGTYPE ' Needed for dialog call
-Title$ = Title$ + CHR$(0)
-fFilter$ = Filter$
-FOR R = 1 TO LEN(fFilter$) ' Replace the pipes with character zero
-IF MID$(fFilter$, R, 1) = "|" THEN MID$(fFilter$, R, 1) = CHR$(0)
-NEXT R
-fFilter$ = fFilter$ + CHR$(0)
- 
-lpstrFile$ = STRING$(2048, 0) ' For the returned file name
-lpstrDefExt$ = STRING$(10, 0) ' Extension will not be added when this is not specified
-OpenCall.lStructSize = LEN(OpenCall)
-OpenCall.hwndOwner = hWnd&&
-OpenCall.lpstrFilter = _OFFSET(fFilter$)
-OpenCall.nFilterIndex = FilterIndex&
-OpenCall.lpstrFile = _OFFSET(lpstrFile$)
-OpenCall.nMaxFile = LEN(lpstrFile$) - 1
-OpenCall.lpstrFileTitle = OpenCall.lpstrFile
-OpenCall.nMaxFileTitle = OpenCall.nMaxFile
-OpenCall.lpstrInitialDir = _OFFSET(InitialDir$)
-OpenCall.lpstrTitle = _OFFSET(Title$)
-OpenCall.lpstrDefExt = _OFFSET(lpstrDefExt$)
-OpenCall.flags = Flags&&
- 
-Result = GetOpenFileNameA&&(OpenCall) '            Do Open File dialog call!
- 
-IF Result THEN ' Trim the remaining zeros
-GetOpenFileName$ = LEFT$(lpstrFile$, INSTR(lpstrFile$, CHR$(0)) - 1)
-Flags& = OpenCall.flags
-FilterIndex = OpenCall.nFilterIndex
-END IF
- 
-END FUNCTION
- 
-FUNCTION GetSaveFileName$ (Title$, InitialDir$, Filter$, FilterIndex&, FilterCount&, Flags&, hWnd&&)
-'  Title$      - The dialog title.
-'  InitialDir$ - If this left blank, it will use the directory where the last opened file is
-'     located. Specify ".\" if you want to always use the current directory.
-'  Filter$     - File filters separated by pipes (|) in the same format as VB6 common dialogs.
-'  FilterIndex - The initial file filter to use. Will be altered by user during the call.
-'  Flags&      - Dialog flags. Will be altered by the user during the call.
-'  hWnd&       - Your program's window handle that should be aquired by the FindWindow function.
- 
-' Returns: Blank when cancel is clicked otherwise, the file name entered by the user.
-' FilterIndex and Flags& will be changed depending on the user's selections.
- 
-DIM SaveCall AS FILEDIALOGTYPE ' Needed for dialog call
-Title$ = Title$ + CHR$(0)
-fFilter$ = Filter$
-FOR R = 1 TO LEN(fFilter$) ' Replace the pipes with zeros
-IF MID$(fFilter$, R, 1) = "|" THEN MID$(fFilter$, R, 1) = CHR$(0)
-NEXT R
-fFilter$ = fFilter$ + CHR$(0)
- 
-lpstrFile$ = STRING$(2048, 0) ' For the returned file name
-lpstrDefExt$ = STRING$(10, 0) ' Extension will not be added when this is not specified
+Function ComDlgFileName$ (Title As String, InitialDir As String, Filter As String, FilterIndex As _Unsigned Long, Flags As _Unsigned Long)
+    Type OPENFILENAME
+        As _Unsigned Long lStructSize
+        $If 64BIT Then
+            As String * 4 padding
+        $End If
+        As _Offset hwndOwner, hInstance, lpstrFilter, lpstrCustomFilter
+        As _Unsigned Long nMaxCustFilter, nFilterIndex
+        As _Offset lpstrFile
+        As _Unsigned Long nMaxFile
+        $If 64BIT Then
+            As String * 4 padding2
+        $End If
+        As _Offset lpstrFileTitle
+        As _Unsigned Long nMaxFileTitle
+        $If 64BIT Then
+            As String * 4 padding3
+        $End If
+        As _Offset lpstrInitialDir, lpstrTitle
+        As _Unsigned Long Flags
+        As Integer nFileOffset, nFileExtension
+        As _Offset lpstrDefExt, lCustData, lpfnHook, lpTemplateName, pvReserved
+        As _Unsigned Long dwReserved, FlagsEx
+    End Type
 
+    Declare Dynamic Library "Comdlg32"
+        Sub GetSaveFileName Alias "GetSaveFileNameA" (ByVal ofn As _Offset)
+        Function GetOpenFileName& Alias "GetOpenFileNameA" (ByVal ofn As _Offset)
+    End Declare
+    $If 64BIT Then
+        Declare CustomType Library ".\internal\c\c_compiler\x86_64-w64-mingw32\include\tchar"
+            Function tcslen%& Alias "_tcslen" (ByVal str As _Offset)
+        End Declare
+    $Else
+        Declare CustomType Library ".\internal\c\c_compiler\i686-w64-mingw32\include\tchar"
+        Function tcslen%& Alias "_tcslen" (ByVal str As _Offset)
+        End Declare
+    $End If
 
-SaveCall.lStructSize = LEN(SaveCall)
-SaveCall.hwndOwner = hWnd&&
-SaveCall.lpstrFilter = _OFFSET(fFilter$)
-SaveCall.nFilterIndex = FilterIndex&
-SaveCall.lpstrFile = _OFFSET(lpstrFile$)
-SaveCall.nMaxFile = LEN(lpstrFile$) - 1
-SaveCall.lpstrFileTitle = SaveCall.lpstrFile
-SaveCall.nMaxFileTitle = SaveCall.nMaxFile
-SaveCall.lpstrInitialDir = _OFFSET(InitialDir$)
-SaveCall.lpstrTitle = _OFFSET(Title$)
-SaveCall.lpstrDefExt = _OFFSET(lpstrDefExt$)
-SaveCall.flags = Flags&
-Result& = GetSaveFileNameA&&(SaveCall) ' Do dialog call!
- 
-IF Result& THEN ' Trim the remaining zeros
-rem  print _trim$(lpstrfile$), ffilter$, filterindex
-GetSaveFileName$ = LEFT$(lpstrFile$, INSTR(lpstrFile$, CHR$(0)) - 1)
-Flags&& = SaveCall.flags
-FilterIndex& = SaveCall.nFilterIndex
-END IF
+    Dim As OPENFILENAME ofn
+    Do
+        Mid$(Filter, InStr(Filter, "|")) = Chr$(0)
+    Loop While InStr(Filter, "|")
 
-$IF 64BIT THEN
-    s$ = filter$
-    prev = 0
-    FOR d = 1 TO FilterCount&
-        sepPos = INSTR(prev, s$, ".")
-        secondPos = INSTR(sepPos + 1, s$, ".")
-        prev = secondPos + 1
-        ext$ = MID$(s$, sepPos, 4)
-        IF d = FilterIndex& THEN d = FilterCount&
-        'separator = INSTR(prev, s$, "*")
-        's$ = RIGHT$(s$, LEN(s$) - separator)
-        'ext$ = LEFT$(s$, 4)
-        'IF LEN(ext$) > 4 THEN ext$ = MID$(ext$, 1, 4)
-        'prev = separator +1
-    NEXT
-    if len (getsavefilename$) and right$(getsavefilename$,4) <> ext$  then getsavefilename$ = getsavefilename$ + ext$
-$end if
-END FUNCTION
+    Title = Title + Chr$(0)
+    InitialDir = InitialDir + Chr$(0)
+    Filter = Filter + Chr$(0) + Chr$(0)
+    Dim As String * MAX_PATH oFile
+    ofn.lStructSize = Len(ofn)
+    ofn.hwndOwner = _WindowHandle
+    ofn.lpstrFilter = _Offset(Filter)
+    ofn.nFilterIndex = FilterIndex
+    ofn.nMaxFile = Len(oFile)
+    ofn.lpstrFileTitle = ofn.lpstrFile
+    ofn.nMaxFileTitle = ofn.nMaxFile
+    ofn.lpstrInitialDir = _Offset(InitialDir)
+    ofn.lpstrTitle = _Offset(Title)
+    ofn.lpstrFile = _Offset(oFile)
+    If OPEN_DIALOG And Flags Or (SAVE_DIALOG And Flags) = 0 Then
+        If OFN_ALLOWMULTISELECT And Flags Then Flags = Flags Or OFN_EXPLORER
+        ofn.Flags = Flags
+        If GetOpenFileName(_Offset(ofn)) <> 0 Then
+            If OFN_ALLOWMULTISELECT And Flags Then
+                Dim As String file, outfiles, directory
+                Dim As _Offset tmp: tmp = ofn.lpstrFile + ofn.nFileOffset
+                Dim As _MEM pFiles: pFiles = _Mem(tmp, tcslen(tmp))
+                Dim As _MEM dir: dir = _Mem(ofn.lpstrFile, tcslen(ofn.lpstrFile))
+                directory = Space$(tcslen(ofn.lpstrFile))
+                _MemGet dir, dir.OFFSET, directory
+                _MemFree dir
+                Dim As Long i
+                While tcslen(tmp)
+                    file = Space$(tcslen(tmp))
+                    _MemGet pFiles, pFiles.OFFSET, file
+                    Select Case i
+                        Case 0
+                            outfiles = directory + "\" + file
+                        Case Else
+                            outfiles = outfiles + "|" + directory + "\" + file
+                    End Select
+                    i = i + 1
+                    tmp = tmp + (tcslen(tmp) + 1)
+                    pFiles = _Mem(tmp, tcslen(tmp))
+                Wend
+                _MemFree pFiles
+                If i = 1 Then
+                    file = directory
+                    ComDlgFileName = file
+                Else
+                    ComDlgFileName = outfiles
+                End If
+            Else
+                ComDlgFileName = Mid$(oFile, 1, InStr(oFile, Chr$(0)) - 1)
+            End If
+        End If
+    ElseIf SAVE_DIALOG And Flags Then
+        ofn.Flags = Flags
+        GetSaveFileName _Offset(ofn)
+        ComDlgFileName = Mid$(oFile, 1, InStr(oFile, Chr$(0)) - 1)
+    End If
+End Function
