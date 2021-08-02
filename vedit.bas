@@ -656,7 +656,7 @@ SUB displayGrid (canvas AS LONG)
         END IF
     END IF
     _DEST canvas
-    _PUTIMAGE (file.xOffset, file.yOffset), grid.img
+    _PUTIMAGE (file.xOffset, file.yOffset), grid.img, canvas
 END SUB
 
 SUB deleteLayer (layerID AS INTEGER)
@@ -702,15 +702,15 @@ SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS IN
     layerCoord.h = (layer.h * file.zoom)
     IF imageLayer(contentid).img > -2 THEN
         imageLayer(contentid).img = _LOADIMAGE(imageLayer(contentid).file, 32)
+        IF imageLayer(contentid).img > -2 THEN
+            imageLayer(contentid).img = _NEWIMAGE(layer.w, layer.h, 32)
+        END IF
         imageLayer(contentid).w = _WIDTH(imageLayer(contentid).img)
         imageLayer(contentid).h = _HEIGHT(imageLayer(contentid).img)
         layer.w = imageLayer(contentid).w
         layer.h = imageLayer(contentid).h
         layerCoord.w = (layer.w * file.zoom)
         layerCoord.h = (layer.h * file.zoom)
-        IF imageLayer(contentid).img > -2 THEN
-            imageLayer(contentid).img = _NEWIMAGE(layer.w, layer.h, 32)
-        END IF
     END IF
     IF imageLayer(contentid).img < -1 AND layer.w > 0 AND layer.h > 0 THEN _PUTIMAGE (layerCoord.x, layerCoord.y)-(layerCoord.x + layerCoord.w, layerCoord.y + layerCoord.h), imageLayer(contentid).img
     IF layerIsActive THEN

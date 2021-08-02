@@ -16,8 +16,8 @@ type=tool;x=left;y=prevb;w=40;h=40;color=ui;hovercolor=ui2;name=move;style=b;ang
 type=tool;x=left;y=prevb;w=40;h=40;color=ui;hovercolor=ui2;name=paint;style=b;angle=0;text=Paint;hovertext=Switches to the paint tool;content=\cursors\Handwriting.png;action=tool.paint
 type=canvas;x=prevr;y=(move);w=span;h=(layerlist);color=ui;hovercolor=ui;name=canvas;angle=0;style=bf
 type=list;x=right;y=(canvas);w=1/4;h=nextt;color=ui;hovercolor=ui2;name=layerlist;style=b;angle=0;text=Layers;content=layers;hovertext=A list of all layers in the current file
+type=button;x=right;y=(addimage);w=flex;h=25;color=ui;hovercolor=ui2;name=addvector;style=b;angle=0;text=+V;action=add.vector
+type=button;x=prevl;y=nextt;w=flex;h=25;color=ui;hovercolor=ui2;name=addimage;style=b;angle=0;text=+I;action=add.image
 type=button;x=right;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=quit;style=b;angle=0;text=Quit;action=quit
 type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=back;style=b;angle=0;text=Back;action=view.main
 type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=settings;style=b;angle=0;text=Settings;action=view.settings;hovertext=Opens the settings menu
-type=button;x=right;y=prevt;w=flex;h=25;color=ui;hovercolor=ui2;name=addvector;style=b;angle=0;text=+V;action=add.vector
-type=button;x=prevl;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=addimage;style=b;angle=0;text=+I;action=add.image
