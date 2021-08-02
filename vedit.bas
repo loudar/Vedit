@@ -145,15 +145,15 @@ END SUB
 SUB saveFileDialog
     'filter$ = "PNG (*.png)|*.PNG|VFI (*.vfi)|*.VFI" + CHR$(0)
     filter$ = "JPG (*.jpg)|*.jpg|PNG (*.png)|*.png|VFI (*.vfi)|*.vfi" + CHR$(0)
-    flags& = OFN_OVERWRITEPROMPT + OFN_NOCHANGEDIR '   add flag constants here
-    targetfile$ = GetSaveFileName$("Vedit - Save File", ".\", filter$, 3, 3, flags&, _WINDOWHANDLE)
+    flags& = OFN_OVERWRITEPROMPT + OFN_NOCHANGEDIR + SAVE_DIALOG '   add flag constants here
+    targetfile$ = ComDlgFileName("Vedit - Save File", ".\", filter$, 3, flags&)
     saveFile targetfile$
 END SUB
 
 SUB openFileDialog
     filter$ = "VFI (*.vfi)|*.VFI" + CHR$(0)
     flags& = OFN_FILEMUSTEXIST + OFN_NOCHANGEDIR + OFN_READONLY '    add flag constants here
-    sourcefile$ = GetOpenFileName$("Vedit - Open File", ".\", filter$, 1, flags&, _WINDOWHANDLE)
+    sourcefile$ = ComDlgFileName("Vedit - Open File", ".\", filter$, 1, flags&)
     openFile sourcefile$
 END SUB
 
