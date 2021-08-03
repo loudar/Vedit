@@ -52,7 +52,7 @@ TYPE element
     AS STRING x, y, w, h, style, name, text, buffer, type, color, hovercolor, action, angle, font, textalign
     AS STRING view, round, hovertext, padding, url, switchword, group, options, content
     AS INTEGER sel_start, sel_end, cursor, items, hovertextwait, hoverx, hovery
-    AS _UNSIGNED _INTEGER64 scroll
+    AS _INTEGER64 scroll
     AS _FLOAT statelock, hovertime, value, offsetx, offsety
     AS LONG drawcolor
     AS _BYTE contextopen, allowcontextclose, expand

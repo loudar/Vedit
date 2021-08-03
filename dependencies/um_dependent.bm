@@ -349,7 +349,7 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
             PAINT (val_start + (this.value * (val_end - val_start)), cy), this.drawcolor, this.drawcolor
             LINE (val_start, cy)-(val_end, cy + 1), this.drawcolor, BF
         CASE "list"
-            displayList coord, this.content
+            displayList coord, this.content, this
             rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
         CASE "canvas"
             rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=bf;angle=0;round=0", _RGBA(0, 0,0, 255)
@@ -402,7 +402,7 @@ SUB displayElement (elementindex AS INTEGER, keyhit AS INTEGER) 'parses abstract
                 doThis buffer$ + getCurrentInputValues$(-1), 0
             END IF
         CASE 27
-            doThis "action=view.main;" + getCurrentInputValues$(0), 0
+            doThis "action=view.start;" + getCurrentInputValues$(0), 0
         CASE 21248: invoke.delete = -1 'delete
         CASE 19200: invoke.left = -1 'left arrow
         CASE 19712: invoke.right = -1 'right arrow

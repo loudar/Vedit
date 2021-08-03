@@ -127,18 +127,27 @@ LOOP UNTIL mainexit = -1 OR restart = -1
 IF restart = -1 THEN GOTO start
 
 SUB adjustZoom (coord AS rectangle)
-    IF mouse.scroll < 0 THEN
-        IF altDown THEN
-            file.xOffset = file.xOffset - (((file.w * file.zoom) - ((mouse.x - coord.x) - (file.xOffset - (file.w * file.zoom)))) * (-0.1))
-            file.yOffset = file.yOffset - (((file.h * file.zoom) - ((mouse.y - coord.y) - (file.yOffset - (file.h * file.zoom)))) * (-0.1))
+    REDIM mcoord AS rectangle
+    mcoord.x = mouse.x
+    mcoord.y = mouse.y
+    IF inBounds(mcoord, coord) THEN
+        IF mouse.scroll < 0 THEN
+            IF file.zoom < 1000 THEN
+                IF altDown THEN
+                    file.xOffset = file.xOffset - (((file.w * file.zoom) - ((mouse.x - coord.x) - (file.xOffset - (file.w * file.zoom)))) * (-0.1))
+                    file.yOffset = file.yOffset - (((file.h * file.zoom) - ((mouse.y - coord.y) - (file.yOffset - (file.h * file.zoom)))) * (-0.1))
+                END IF
+                file.zoom = file.zoom * 1.1
+            END IF
+        ELSEIF mouse.scroll > 0 THEN
+            IF file.zoom > 0.001 THEN
+                IF altDown THEN
+                    file.xOffset = file.xOffset + (((file.w * file.zoom) - ((mouse.x - coord.x) - (file.xOffset - (file.w * file.zoom)))) * (-0.1))
+                    file.yOffset = file.yOffset + (((file.h * file.zoom) - ((mouse.y - coord.y) - (file.yOffset - (file.h * file.zoom)))) * (-0.1))
+                END IF
+                file.zoom = file.zoom / 11 * 10
+            END IF
         END IF
-        file.zoom = file.zoom * 1.1
-    ELSEIF mouse.scroll > 0 THEN
-        IF altDown THEN
-            file.xOffset = file.xOffset + (((file.w * file.zoom) - ((mouse.x - coord.x) - (file.xOffset - (file.w * file.zoom)))) * (-0.1))
-            file.yOffset = file.yOffset + (((file.h * file.zoom) - ((mouse.y - coord.y) - (file.yOffset - (file.h * file.zoom)))) * (-0.1))
-        END IF
-        file.zoom = file.zoom / 11 * 10
     END IF
 END SUB
 
@@ -529,6 +538,7 @@ SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS
             END IF
             imageLayer(ID).w = w
             imageLayer(ID).h = h
+            ProcessRGBImage imageLayer(ID).img, 1, 0, 0, 1
         CASE "text"
             ' create a UM element, then check for moving in displayLayers
     END SELECT
@@ -682,6 +692,8 @@ SUB deleteLayer (layerID AS INTEGER)
             deleteVectorLayer layerInfo(layerID).contentid
         CASE "image"
             deleteImageLayer layerInfo(layerID).contentid
+        CASE "text"
+            deleteTextLayer layerInfo(layerID).contentid
     END SELECT
     IF layerID < UBOUND(layerInfo) THEN
         i = layerID - 1: DO: i = i + 1
@@ -708,6 +720,10 @@ SUB deleteImageLayer (contentID AS INTEGER)
     imageLayer(contentID) = imageLayer(0)
 END SUB
 
+SUB deleteTextLayer (contentID AS INTEGER)
+
+END SUB
+
 SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS INTEGER, canvas AS rectangle)
     contentid = layer.contentid
     REDIM layerCoord AS rectangle
@@ -715,19 +731,6 @@ SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS IN
     layerCoord.y = (layer.y * file.zoom) + file.yOffset
     layerCoord.w = (layer.w * file.zoom)
     layerCoord.h = (layer.h * file.zoom)
-    'IF imageLayer(contentid).img > -2 THEN
-    '    IF _FILEEXISTS(imageLayer(contentid).file) THEN
-    '        imageLayer(contentid).img = _LOADIMAGE(imageLayer(contentid).file, 32)
-    '    ELSE
-    '        imageLayer(contentid).img = _NEWIMAGE(layer.w, layer.h, 32)
-    '    END IF
-    '    imageLayer(contentid).w = _WIDTH(imageLayer(contentid).img)
-    '    imageLayer(contentid).h = _HEIGHT(imageLayer(contentid).img)
-    '    layer.w = imageLayer(contentid).w
-    '    layer.h = imageLayer(contentid).h
-    '    layerCoord.w = (layer.w * file.zoom)
-    '    layerCoord.h = (layer.h * file.zoom)
-    'END IF
     IF imageLayer(contentid).img < -1 AND layer.w > 0 AND layer.h > 0 THEN _PUTIMAGE (layerCoord.x, layerCoord.y)-(layerCoord.x + layerCoord.w, layerCoord.y + layerCoord.h), imageLayer(contentid).img
     IF layerIsActive THEN
         displayLayerOutline layerCoord, layer, layerIsActive, layerID, canvas
@@ -834,8 +837,8 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
             canvasRef = _DEST
             _DEST imageLayer(layer.contentid).img
             size = 5
-            mX = INT((mouse.x - canvas.x - file.xOffset - (layer.x * file.zoom)) * (1 / file.zoom))
-            mY = INT((mouse.y - canvas.y - file.yOffset - (layer.y * file.zoom)) * (1 / file.zoom))
+            mX = INT((mouse.x - canvas.x - file.xOffset - (layer.x * file.zoom)) * (1 / file.zoom) * (_WIDTH(imageLayer(layer.contentid).img) / layer.w))
+            mY = INT((mouse.y - canvas.y - file.yOffset - (layer.y * file.zoom)) * (1 / file.zoom) * (_HEIGHT(imageLayer(layer.contentid).img) / layer.h))
             CIRCLE (mX, mY), size, _RGBA(255, 255, 255, 255)
             PAINT (mX, mY), _RGBA(255, 255, 255, 255), _RGBA(255, 255, 255, 255)
             _DEST canvasRef
@@ -1081,7 +1084,7 @@ FUNCTION pointEmpty (vectorPoint AS vectorPoint)
     END IF
 END FUNCTION
 
-SUB displayList (coord AS rectangle, content AS STRING)
+SUB displayList (coord AS rectangle, content AS STRING, this AS element)
     REDIM text AS STRING
     REDIM AS rectangle mcoord, lcoord, viscoord
     mcoord.x = mouse.x
@@ -1089,47 +1092,67 @@ SUB displayList (coord AS rectangle, content AS STRING)
     mcoord.w = 0
     mcoord.h = 0
     margin = global.margin
-    lineheight = _FONTHEIGHT * 1.6
+    lineheight = INT(_FONTHEIGHT * 1.6)
     COLOR col&("ui"), col&("t")
     SELECT CASE content
         CASE "layers"
             IF UBOUND(layerInfo) > 0 THEN
-                DO: i = i + 1
-                    lcoord.x = coord.x + margin
-                    lcoord.y = coord.y + (1.5 * margin) + (lineheight * (i - 1))
-                    lcoord.w = coord.w - (margin * 3)
-                    lcoord.h = lineheight
-                    text = layerInfo(i).name
-                    viswidth = _FONTHEIGHT
-                    IF LEN(text) * _FONTWIDTH >= lcoord.w - viswidth - global.margin THEN
-                        cutlength = INT((lcoord.w - viswidth - global.margin) / _FONTWIDTH)
-                        text = MID$(text, 1, cutlength - 3) + "..."
+                IF this.state = 0 THEN
+                    IF mouse.scroll THEN
+                        this.scroll = this.scroll + (mouse.scroll * lineheight)
                     END IF
+                    IF this.scroll < 0 THEN this.scroll = 0
+                    IF this.scroll > lineheight * (UBOUND(layerInfo) - 1) THEN this.scroll = lineheight * (UBOUND(layerInfo) - 1)
+                    countRelation = (INT((coord.h - (3 * margin)) / lineheight) / UBOUND(layerInfo))
+                    IF countRelation < 1 THEN
+                        relation = this.scroll / (lineheight * (UBOUND(layerInfo) - 1))
+                        scrollH = countRelation * (coord.h - (3 * margin))
+                        scrollY = coord.y + ((coord.h - (3 * margin) - scrollH) * relation) + (1.5 * margin)
+                        scrollW = 2
+                        scrollX = coord.x + coord.w - 1 - scrollW
+                        LINE (scrollX, scrollY)-(scrollX + scrollW, scrollY + scrollH), _RGBA(150, 150, 150, 150), BF
+                    END IF
+                    DO: i = i + 1
+                        lcoord.x = coord.x + margin
+                        lcoord.y = coord.y + (1.5 * margin) + (lineheight * (i - 1)) - this.scroll
+                        lcoord.w = coord.w - (margin * 3)
+                        lcoord.h = lineheight
+                        IF lcoord.y + lcoord.h < coord.y + coord.h AND lcoord.y > coord.y THEN
+                            text = layerInfo(i).name
+                            viswidth = _FONTHEIGHT
+                            IF LEN(text) * _FONTWIDTH >= lcoord.w - viswidth - global.margin THEN
+                                cutlength = INT((lcoord.w - viswidth - global.margin) / _FONTWIDTH)
+                                text = MID$(text, 1, cutlength - 3) + "..."
+                            END IF
 
-                    IF i = file.activeLayer THEN
-                        rectangle "x=" + LST$(lcoord.x) + ";y=" + LST$(lcoord.y - (global.margin / 2)) + ";w=" + LST$(lcoord.w + global.margin) + ";h=" + LST$(_FONTHEIGHT + global.margin) + ";style=bf;angle=0;round=" + LST$(global.round), col&("bg2")
-                    END IF
+                            IF i = file.activeLayer THEN
+                                rectangle "x=" + LST$(lcoord.x) + ";y=" + LST$(lcoord.y - (global.margin / 2)) + ";w=" + LST$(lcoord.w + global.margin) + ";h=" + LST$(_FONTHEIGHT + global.margin) + ";style=bf;angle=0;round=" + LST$(global.round), col&("bg2")
+                            END IF
 
-                    viscoord.x = lcoord.x + (lcoord.w - viswidth)
-                    viscoord.y = lcoord.y
-                    viscoord.w = viswidth
-                    viscoord.h = _FONTHEIGHT
-                    IF layerInfo(i).enabled THEN
-                        rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=bf;angle=0;round=" + LST$(global.round), col&("ui")
-                        checkmargin = 2
-                        drawShape "x=" + LST$(viscoord.x + checkmargin) + ";y=" + LST$(viscoord.y + checkmargin) + ";w=" + LST$(viscoord.w - (checkmargin * 3)) + ";h=" + LST$(viscoord.h - (checkmargin * 2)) + ";shape=check;thickness=2", col&("bg1")
-                    ELSE
-                        rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=bf;angle=0;round=" + LST$(global.round), col&("ui")
-                    END IF
-                    _PRINTSTRING (lcoord.x + margin, lcoord.y + 2), text
+                            viscoord.x = lcoord.x + (lcoord.w - viswidth)
+                            viscoord.y = lcoord.y
+                            viscoord.w = viswidth
+                            viscoord.h = _FONTHEIGHT
+                            IF layerInfo(i).enabled THEN
+                                rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=bf;angle=0;round=" + LST$(global.round), col&("ui")
+                                checkmargin = 2
+                                drawShape "x=" + LST$(viscoord.x + checkmargin) + ";y=" + LST$(viscoord.y + checkmargin) + ";w=" + LST$(viscoord.w - (checkmargin * 3)) + ";h=" + LST$(viscoord.h - (checkmargin * 2)) + ";shape=check;thickness=2", col&("bg1")
+                            ELSE
+                                rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=bf;angle=0;round=" + LST$(global.round), col&("ui")
+                            END IF
+                            _PRINTSTRING (lcoord.x + margin, lcoord.y + 2), text
 
-                    IF inBounds(mcoord, viscoord) AND mouse.left AND mouse.lefttimedif > .1 THEN
-                        IF layerInfo(i).enabled = 0 THEN layerInfo(i).enabled = -1 ELSE layerInfo(i).enabled = 0
-                    ELSEIF inBounds(mcoord, lcoord) AND mouse.left THEN
-                        'LINE (lcoord.x, lcoord.y)-(lcoord.x + lcoord.w, lcoord.y + lcoord.h), _RGBA(255, 0, 0, 255), B
-                        file.activeLayer = i
-                    END IF
-                LOOP UNTIL i = UBOUND(layerInfo)
+                            IF inBounds(mcoord, viscoord) AND mouse.left AND mouse.lefttimedif > .1 THEN
+                                IF layerInfo(i).enabled = 0 THEN layerInfo(i).enabled = -1 ELSE layerInfo(i).enabled = 0
+                            ELSEIF inBounds(mcoord, lcoord) AND mouse.left THEN
+                                'LINE (lcoord.x, lcoord.y)-(lcoord.x + lcoord.w, lcoord.y + lcoord.h), _RGBA(255, 0, 0, 255), B
+                                file.activeLayer = i
+                            END IF
+                        END IF
+                    LOOP UNTIL i = UBOUND(layerInfo)
+                ELSEIF this.state = -1 THEN
+
+                END IF
             END IF
     END SELECT
 END SUB

@@ -353,6 +353,8 @@ SUB loadUI (reload AS _BYTE)
                             elements(eub).font = getArgument$(uielement$, "font")
                             elements(eub).textalign = getArgument$(uielement$, "textalign")
                             elements(eub).content = getArgument$(uielement$, "content")
+                            elements(eub).state = getArgumentv(uielement$, "state")
+                            elements(eub).scroll = getArgumentv(uielement$, "scroll")
                             elements(eub).selected = 0
 
                             checkGlobal elements(eub)
@@ -862,10 +864,6 @@ SUB elementMouseHandling (this AS element, elementindex AS INTEGER, invoke AS in
                         setGlobal this.name, LST$(this.value)
                     END IF
                 END IF
-            END IF
-
-            IF mouse.scroll THEN
-                this.scroll = this.scroll + mouse.scroll
             END IF
         END IF
 
