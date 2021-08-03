@@ -1098,13 +1098,13 @@ SUB displayList (coord AS rectangle, content AS STRING, this AS element)
         CASE "layers"
             IF UBOUND(layerInfo) > 0 THEN
                 IF this.state = 0 THEN
-                    IF mouse.scroll THEN
-                        this.scroll = this.scroll + (mouse.scroll * lineheight)
-                    END IF
-                    IF this.scroll < 0 THEN this.scroll = 0
-                    IF this.scroll > lineheight * (UBOUND(layerInfo) - 1) THEN this.scroll = lineheight * (UBOUND(layerInfo) - 1)
                     countRelation = (INT((coord.h - (3 * margin)) / lineheight) / UBOUND(layerInfo))
                     IF countRelation < 1 THEN
+                        IF mouse.scroll AND inBounds(mcoord, coord) THEN
+                            this.scroll = this.scroll + (mouse.scroll * lineheight)
+                        END IF
+                        IF this.scroll < 0 THEN this.scroll = 0
+                        IF this.scroll > lineheight * (UBOUND(layerInfo) - 1) THEN this.scroll = lineheight * (UBOUND(layerInfo) - 1)
                         relation = this.scroll / (lineheight * (UBOUND(layerInfo) - 1))
                         scrollH = countRelation * (coord.h - (3 * margin))
                         scrollY = coord.y + ((coord.h - (3 * margin) - scrollH) * relation) + (1.5 * margin)
