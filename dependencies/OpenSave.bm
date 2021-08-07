@@ -38,6 +38,7 @@ Function ComDlgFileName$ (Title As String, InitialDir As String, Filter As Strin
     $End If
 
     Dim As OPENFILENAME ofn
+
     Do
         Mid$(Filter, InStr(Filter, "|")) = Chr$(0)
     Loop While InStr(Filter, "|")
@@ -95,6 +96,8 @@ Function ComDlgFileName$ (Title As String, InitialDir As String, Filter As Strin
         End If
     ElseIf SAVE_DIALOG And Flags Then
         ofn.Flags = Flags
+        dim as string defaultExt:defaultExt = DEFEXT
+        ofn.lpstrDefExt =  _Offset(defaultExt)
         GetSaveFileName _Offset(ofn)
         ComDlgFileName = Mid$(oFile, 1, InStr(oFile, Chr$(0)) - 1)
     End If
