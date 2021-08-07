@@ -4,6 +4,6 @@ type=dropdown;x=left;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;text=File backg
 type=gradient;x=left;y=nextt;w=full;h=25;name=1;style=bf;color=ui/ui2/bg2/active
 type=text;x=left;y=b;w=flex;h=25;color=ui;hovercolor=ui;name=time;style=bf;angle=0;text=Time:;
 type=button;x=right;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=quit;style=b;angle=0;text=Quit;action=quit
-type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=back;style=b;angle=0;text=Back;action=view.main
+type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=back;style=b;angle=0;text=Back;action=view.previous
 type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=save;style=b;angle=0;text=Save;action=saveconfig
 type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=reset;style=b;angle=0;text=Reset;action=resetconfig

@@ -42,7 +42,14 @@ SUB doThis (arguments AS STRING, recursivecall AS _BYTE) 'program-specific actio
     END SELECT
     SELECT CASE MID$(action$, 1, INSTR(action$, ".") - 1)
         CASE "view"
-            currentview = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
+            REDIM newview AS STRING
+            newview = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
+            IF newview = "previous" THEN
+                SWAP currentview, previousview
+            ELSE
+                previousview = currentview
+                currentview = newview
+            END IF
         CASE "tool"
             file.activeTool = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
     END SELECT

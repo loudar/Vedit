@@ -60,7 +60,7 @@ TYPE element
 END TYPE
 REDIM SHARED elements(0) AS element
 
-REDIM SHARED AS STRING viewname(0), currentview, transmittedtext
+REDIM SHARED AS STRING viewname(0), currentview, previousview, transmittedtext
 TYPE invoke
     AS _BYTE delete, back, select, right, left, deselect, jumptoend, jumptofront
 END TYPE
