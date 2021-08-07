@@ -37,7 +37,7 @@ END TYPE
 REDIM SHARED internal AS internal
 
 TYPE global
-    AS STRING * 512 intpath, license, scheme, programName, permalink, permalinkCode
+    AS STRING * 512 intpath, license, scheme, programName, permalink, permalinkCode, fileBackground
     AS _UNSIGNED _INTEGER64 matchthreshhold
     AS _FLOAT margin, padding, round, windowsize, sliderwidth
     AS _BYTE licensestatus, partialsearch, actionlock, altCursors

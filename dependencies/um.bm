@@ -246,7 +246,7 @@ SUB expandElement (this AS element, elementindex AS INTEGER, currentfont AS LONG
             COLOR col&("ui"), col&("t")
             LINE (itemcoord.x + 1, itemcoord.y + 1)-(itemcoord.x + itemcoord.w - 1, itemcoord.y + itemcoord.h - 1), col&("bg1"), BF
         END IF
-        _PRINTSTRING (itemcoord.x + (2 * global.padding), itemcoord.y + global.padding), options(index)
+        _PRINTSTRING (itemcoord.x + (2 * global.padding), itemcoord.y + global.padding), _TRIM$(options(index))
     LOOP UNTIL index = UBOUND(options)
     rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=B;angle=" + this.angle + ";round=" + this.round, this.drawcolor
 END SUB
@@ -830,7 +830,6 @@ END FUNCTION
 
 SUB elementMouseHandling (this AS element, elementindex AS INTEGER, invoke AS invoke, coord AS rectangle, currentfont AS LONG)
     IF this.hovertextwait = 0 THEN this.hovertextwait = 1
-    'IF NOT active(elementindex) AND this.expand THEN this.expand = 0
     IF mouseInBounds(coord) THEN
         IF this.hovertime = 0 OR this.hoverx <> mouse.x OR this.hovery <> mouse.y THEN this.hovertime = TIMER: this.hoverx = mouse.x: this.hovery = mouse.y
     ELSE

@@ -76,6 +76,8 @@ SUB checkGlobal (this AS element)
     SELECT CASE this.name
         CASE "colorscheme"
             this.buffer = _TRIM$(global.scheme)
+        CASE "fileBackground"
+            this.buffer = _TRIM$(global.fileBackground)
         CASE "partialsearch"
             this.state = global.partialsearch
         CASE "license"
@@ -94,6 +96,10 @@ SUB setGlobal (globalname AS STRING, value AS STRING)
     SELECT CASE globalname
         CASE "colorscheme"
             global.scheme = value
+            saveConfig
+            loadConfig
+        CASE "fileBackground"
+            global.fileBackground = value
             saveConfig
             loadConfig
         CASE "partialsearch"
@@ -457,34 +463,36 @@ SUB loadConfig
     global.padding = getArgumentv(config$, "padding")
     global.margin = getArgumentv(config$, "margin")
     global.round = getArgumentv(config$, "round")
-    global.license = getArgument$(config$, "license")
     global.partialsearch = getArgumentv(config$, "partialsearch")
     global.scheme = getArgument$(config$, "colorscheme")
+    global.fileBackground = getArgument$(config$, "fileBackground")
     global.matchthreshhold = getArgumentv(config$, "matchthreshhold")
     global.windowsize = getArgumentv(config$, "windowsize")
     loadColors global.scheme
     loadFonts
-    IF checkLicense(_INFLATE$(global.license)) = 0 THEN setLicense "", 0: saveConfig
+    saveConfig
     IF global.license <> "" THEN global.licensestatus = -1
 END SUB
 
 SUB resetConfig
-    config$ = "round=3;margin=10;padding=6;license=;colorscheme=dark;matchthreshhold=2;partialsearch=-1;windowsize=.5"
+    config$ = "round=3;margin=10;padding=6;license=;colorscheme=dark;fileBackground=white;matchthreshhold=2;partialsearch=-1;windowsize=.5"
     configfile$ = _TRIM$(global.intpath) + "\config.dst"
     freen = FREEFILE
     OPEN configfile$ FOR OUTPUT AS #freen
     PRINT #freen, config$
     CLOSE #freen
+    grid.isGenerated = 0
 END SUB
 
 SUB saveConfig
     config$ = "round=" + LST$(global.round) + ";margin=" + LST$(global.margin) + ";padding=" + LST$(global.padding) + ";license=" + _TRIM$(global.license)
-    config$ = config$ + ";colorscheme=" + _TRIM$(global.scheme) + ";matchthreshhold=" + LST$(global.matchthreshhold) + ";partialsearch=" + LST$(global.partialsearch) + ";windowsize=" + LST$(global.windowsize)
+    config$ = config$ + ";colorscheme=" + _TRIM$(global.scheme) + ";fileBackground=" + _TRIM$(global.fileBackground) + ";matchthreshhold=" + LST$(global.matchthreshhold) + ";partialsearch=" + LST$(global.partialsearch) + ";windowsize=" + LST$(global.windowsize)
     configfile$ = _TRIM$(global.intpath) + "\config.dst"
     freen = FREEFILE
     OPEN configfile$ FOR OUTPUT AS #freen
     PRINT #freen, config$
     CLOSE #freen
+    grid.isGenerated = 0
 END SUB
 
 FUNCTION checkLicense (license$)

@@ -152,7 +152,7 @@ SUB adjustZoom (coord AS rectangle)
 END SUB
 
 SUB saveFileDialog
-    filter$ = "JPG (*.jpg)|*.jpg|PNG (*.png)|*.png|VFI (*.vfi)|*.vfi" + CHR$(0)
+    filter$ = "BMP (*.bmp)|*.bmp|GIF (*.gif)|*.gif|JPG (*.jpg)|*.jpg|PNG (*.png)|*.png|VFI (*.vfi)|*.vfi" + CHR$(0)
     flags& = OFN_OVERWRITEPROMPT + OFN_NOCHANGEDIR + SAVE_DIALOG '   add flag constants here
     targetfile$ = ComDlgFileName("Vedit - Save File", ".\", filter$, 3, flags&)
     saveFile targetfile$
@@ -171,11 +171,19 @@ SUB saveFile (targetFile AS STRING)
     SELECT CASE LCASE$(format$)
         CASE ".vfi"
             writeVFI targetFile
-        CASE ".png"
+        CASE ".bmp"
+            makeExportIMG file.w, file.h, img
+            success = SaveImage(targetFile, img, 0, 0, _WIDTH(img) - 1, _HEIGHT(img) - 1)
+            _FREEIMAGE img
+        CASE ".gif"
             makeExportIMG file.w, file.h, img
             success = SaveImage(targetFile, img, 0, 0, _WIDTH(img) - 1, _HEIGHT(img) - 1)
             _FREEIMAGE img
         CASE ".jpg"
+            makeExportIMG file.w, file.h, img
+            success = SaveImage(targetFile, img, 0, 0, _WIDTH(img) - 1, _HEIGHT(img) - 1)
+            _FREEIMAGE img
+        CASE ".png"
             makeExportIMG file.w, file.h, img
             success = SaveImage(targetFile, img, 0, 0, _WIDTH(img) - 1, _HEIGHT(img) - 1)
             _FREEIMAGE img
@@ -538,7 +546,7 @@ SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS
             END IF
             imageLayer(ID).w = w
             imageLayer(ID).h = h
-            ProcessRGBImage imageLayer(ID).img, 1, 0, 0, 1
+            'ProcessRGBImage imageLayer(ID).img, 1, 0, 0, 1
         CASE "text"
             ' create a UM element, then check for moving in displayLayers
     END SELECT
@@ -590,6 +598,10 @@ FUNCTION getColumn (column AS _INTEGER64)
 END FUNCTION
 
 SUB makeExportIMG (w AS _INTEGER64, h AS _INTEGER64, IMG AS LONG)
+    fileXbuffer = file.xOffset
+    fileYbuffer = file.yOffset
+    file.xOffset = 0
+    file.yOffset = 0
     IMG = _NEWIMAGE(w, h, 32)
     _DEST IMG
     REDIM coord AS rectangle
@@ -609,13 +621,15 @@ SUB makeExportIMG (w AS _INTEGER64, h AS _INTEGER64, IMG AS LONG)
         LOOP UNTIL layer >= UBOUND(layerInfo)
     END IF
     _DEST 0
+    file.xOffset = fileXbuffer
+    file.yOffset = fileYbuffer
 END SUB
 
 SUB displayLayers (coord AS rectangle)
     REDIM canvasImg AS LONG
     canvasImg = _NEWIMAGE(coord.w, coord.h, 32)
     _DEST canvasImg
-    'LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), _RGBA(150, 150, 150, 255), BF
+    displayFileBG
     IF UBOUND(layerInfo) > 0 THEN
         IF file.activeLayer > UBOUND(layerInfo) THEN file.activeLayer = UBOUND(layerInfo)
         layer = 0: DO: layer = layer + 1
@@ -642,10 +656,46 @@ SUB displayLayers (coord AS rectangle)
         LOOP UNTIL layer >= UBOUND(layerInfo)
     END IF
     IF file.showgrid THEN displayGrid canvasImg
-    LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), _RGBA(255, 255, 255, 255), B
+    REDIM borCol AS LONG
+    IF _TRIM$(global.fileBackground) = "grey60" OR _TRIM$(global.fileBackground) = "grey80" OR _TRIM$(global.fileBackground) = "white" THEN
+        borCol = _RGBA(20, 20, 20, 255)
+    ELSE
+        borCol = _RGBA(255, 255, 255, 255)
+    END IF
+    LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), borCol, B
     _DEST 0
     _PUTIMAGE (coord.x, coord.y)-(coord.x + coord.w, coord.y + coord.h), canvasImg, 0
     _FREEIMAGE canvasImg
+END SUB
+
+SUB displayFileBG
+    REDIM AS LONG bgCol
+    SELECT CASE _TRIM$(global.fileBackground)
+        CASE "black"
+            bgCol = _RGBA(0, 0, 0, 255)
+        CASE "grey20"
+            bgCol = _RGBA(51, 51, 51, 255)
+        CASE "grey40"
+            bgCol = _RGBA(102, 102, 102, 255)
+        CASE "grey60"
+            bgCol = _RGBA(153, 153, 153, 255)
+        CASE "grey80"
+            bgCol = _RGBA(204, 204, 204, 255)
+        CASE "white"
+            bgCol = _RGBA(255, 255, 255, 255)
+        CASE ELSE
+            bgCol = _RGBA(150, 150, 150, 255)
+    END SELECT
+    LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), bgCol, BF
+    IF _TRIM$(global.fileBackground) = "checkerboard" THEN
+        LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), _RGBA(102, 102, 102, 255), BF
+        gridsize = 10 * file.zoom
+        IF file.w * file.zoom > gridsize THEN
+            xpos = 0: DO: xpos = xpos + (gridsize * 2)
+                LINE (xpos, 0)-(xpos + gridsize, (file.h * file.zoom)), _RGBA(204, 204, 204, 255), BF
+            LOOP UNTIL xpos + gridsize >= (file.w * file.zoom) / 2
+        END IF
+    END IF
 END SUB
 
 SUB displayGrid (canvas AS LONG)
@@ -657,26 +707,34 @@ SUB displayGrid (canvas AS LONG)
         grid.img = _NEWIMAGE(grid.atW, grid.atH, 32)
 
         _DEST grid.img
+        IF _TRIM$(global.fileBackground) = "grey60" OR _TRIM$(global.fileBackground) = "grey80" OR _TRIM$(global.fileBackground) = "white" THEN
+            gridCol = _RGBA(0, 0, 0, 80)
+            gridCol2 = _RGBA(0, 0, 0, 150)
+        ELSE
+            gridCol = _RGBA(255, 255, 255, 80)
+            gridCol2 = _RGBA(255, 255, 255, 150)
+        END IF
+
         gridsize = 10 * file.zoom
         IF file.w * file.zoom > gridsize THEN
             xpos = 0: DO: xpos = xpos + gridsize
-                LINE (xpos, 0)-(xpos, (file.h * file.zoom)), _RGBA(255, 255, 255, 85)
+                LINE (xpos, 0)-(xpos, (file.h * file.zoom)), gridCol
             LOOP UNTIL xpos + gridsize >= file.w * file.zoom
         END IF
         IF file.h * file.zoom > gridsize THEN
             ypos = 0: DO: ypos = ypos + gridsize
-                LINE (0, ypos)-((file.w * file.zoom), ypos), _RGBA(255, 255, 255, 85)
+                LINE (0, ypos)-((file.w * file.zoom), ypos), gridCol
             LOOP UNTIL ypos + gridsize >= file.h * file.zoom
         END IF
         gridsize = 10 * gridsize
         IF file.w * file.zoom > gridsize THEN
             xpos = 0: DO: xpos = xpos + gridsize
-                LINE (xpos, 0)-(xpos, (file.h * file.zoom)), _RGBA(255, 255, 255, 150)
+                LINE (xpos, 0)-(xpos, (file.h * file.zoom)), gridCol2
             LOOP UNTIL xpos + gridsize >= file.w * file.zoom
         END IF
         IF file.h * file.zoom > gridsize THEN
             ypos = 0: DO: ypos = ypos + gridsize
-                LINE (0, ypos)-((file.w * file.zoom), ypos), _RGBA(255, 255, 255, 150)
+                LINE (0, ypos)-((file.w * file.zoom), ypos), gridCol2
             LOOP UNTIL ypos + gridsize >= file.h * file.zoom
         END IF
     END IF
