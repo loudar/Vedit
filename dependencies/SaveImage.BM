@@ -417,10 +417,10 @@ FUNCTION PNGExport (file$, imagehandle%, x1%, y1%, x2%, y2%)
     IF PNGOptions.y2 < PNGOptions.y1 THEN PNGExport = 9
     IF PNGOptions.Color <> 256 AND PNGOptions.Color <> 32 THEN PNGExport = 10
 
-    IF PNGExport <> 0 THEN
-        _SOURCE WorkScreen&
-        EXIT FUNCTION
-    END IF
+    'IF PNGExport <> 0 THEN
+    '    _SOURCE WorkScreen&
+    '    EXIT FUNCTION
+    'END IF
 
 
 

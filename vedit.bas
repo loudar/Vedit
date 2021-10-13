@@ -1,3 +1,4 @@
+DO UNTIL _SCREENEXISTS: LOOP
 CLS: CLOSE
 _ACCEPTFILEDROP ON
 $RESIZE:ON
@@ -198,7 +199,7 @@ SUB writeVFI (targetFile AS STRING)
     info$ = "type=fileInfo;width=" + LST$(file.w) + ";height=" + LST$(file.h) + ";zoom=" + LST$(file.zoom) + ";xOffset=" + LST$(file.xOffset) + ";yOffset=" + LST$(file.yOffset) + ";activeLayer=" + LST$(file.activeLayer) + ";activeTool=" + file.activeTool + ";name=" + file.name + ";file=" + targetFile + ";showgrid=" + LST$(file.showgrid) + CHR$(13)
     'PRINT #freen, info$
     PUT #freen, , info$
-    IF UBOUND(layerinfo) > 0 THEN
+    IF UBOUND(layerInfo) > 0 THEN
         i = 0: DO: i = i + 1
             IF layerInfo(i).type = "image" THEN
                 info$ = "type=layerInfo;layert=image;width=" + LST$(layerInfo(i).w) + ";height=" + LST$(layerInfo(i).h) + ";x=" + LST$(layerInfo(i).x) + ";y=" + LST$(layerInfo(i).y) + ";name=" + layerInfo(i).name + ";contentid=" + LST$(layerInfo(i).contentid) + CHR$(13)
@@ -219,7 +220,7 @@ SUB writeVFI (targetFile AS STRING)
                     info$ = "type=vectorPoint;contentid=" + LST$(i) + ";x=" + LST$(vectorPoints(i, p).x) + ";y=" + LST$(vectorPoints(i, p).y) + ";handlex=" + LST$(vectorPoints(i, p).handlex) + ";handley=" + LST$(vectorPoints(i, p).handley) + CHR$(13)
                     'PRINT #freen, info$
                     PUT #freen, , info$
-                LOOP UNTIL p = UBOUND(vectorpoints, 2) OR p = maxPoints
+                LOOP UNTIL p = UBOUND(vectorPoints, 2) OR p = maxPoints
             END IF
         LOOP UNTIL i = UBOUND(vectorPoints, 1)
     END IF
@@ -541,6 +542,7 @@ SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS
             imageLayer(ID).file = sourceFile
             IF sourceFile <> "" THEN
                 imageLayer(ID).img = _LOADIMAGE(sourceFile, 32)
+                RectangleToPolar imageLayer(ID).img
             ELSE
                 imageLayer(ID).img = _NEWIMAGE(w, h, 32)
             END IF
@@ -1058,6 +1060,55 @@ SUB moveLayerCorner (layer AS layerInfo, corner AS _BYTE, layerID AS INTEGER, ca
         currentImage.coord.w = layer.w
         currentImage.coord.h = layer.h
     END IF
+END SUB
+
+SUB RectangleToPolar (Image AS LONG)
+    IF R < 0 OR R > 1 OR G < 0 OR G > 1 OR B < 0 OR B > 1 OR _PIXELSIZE(Image) <> 4 THEN EXIT SUB
+    DIM Buffer AS _MEM: Buffer = _MEMIMAGE(Image) 'Get a memory reference to our image
+
+    maxx = _WIDTH(Image)
+    maxy = _HEIGHT(Image)
+    mx = maxx / 2
+    my = maxy / 2
+
+    DIM O AS _OFFSET, O_Last AS _OFFSET
+    O = Buffer.OFFSET 'We start at this offset
+    O_Last = Buffer.OFFSET + maxx * maxy * 4 'We stop when we get to this offset
+    DIM imgPoints(maxy, maxx, 0 TO 3) AS _UNSIGNED _BYTE
+    DIM p, maxp AS _UNSIGNED _INTEGER64
+    maxp = maxx * maxy
+    'use on error free code ONLY!
+    '$CHECKING:OFF
+    DO
+        p = p + 1
+        y = FIX((p / maxp) * maxy)
+        x = p - (FIX((p / maxp) * maxy) * maxx)
+        imgPoints(y, x, 0) = _MEMGET(Buffer, O, _UNSIGNED _BYTE)
+        imgPoints(y, x, 1) = _MEMGET(Buffer, O + 1, _UNSIGNED _BYTE)
+        imgPoints(y, x, 2) = _MEMGET(Buffer, O + 2, _UNSIGNED _BYTE)
+        imgPoints(y, x, 3) = _MEMGET(Buffer, O + 3, _UNSIGNED _BYTE)
+        O = O + 4
+    LOOP UNTIL O = O_Last
+    'create new image
+    DIM newImg AS LONG
+    newImg = _NEWIMAGE(maxx, maxy, 32)
+    prevDest& = _DEST
+    _DEST newImg
+    y = -1: DO: y = y + 1
+        yfactor = (1 - (y / (maxy))) * maxy * 0.25
+        x = -1: DO: x = x + 1
+            'PSET (x, y), _RGBA(imgPoints(y, x, 2), imgPoints(y, x, 1), imgPoints(y, x, 0), imgPoints(y, x, 3))
+            PSET (mx - (yfactor * SIN(2 * _PI * (1 - (x / maxx)))), my - (yfactor * COS(2 * _PI * (1 - (x / maxx))))), _RGBA(imgPoints(y, x, 2), imgPoints(y, x, 1), imgPoints(y, x, 0), imgPoints(y, x, 3))
+        LOOP UNTIL x = maxx
+    LOOP UNTIL y = maxy
+    _DEST Image
+    CLS
+    _PUTIMAGE (0, 0)-(maxx, maxy), newImg, Image
+    _FREEIMAGE newImg
+    _DEST prevDest&
+    'turn checking back on when done!
+    '$CHECKING:ON
+    _MEMFREE Buffer
 END SUB
 
 SUB ProcessRGBImage (Image AS LONG, R AS SINGLE, G AS SINGLE, B AS SINGLE, A AS SINGLE)
