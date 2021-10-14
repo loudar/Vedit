@@ -5,7 +5,7 @@ $RESIZE:ON
 '$CHECKING:OFF
 ' /\ might perfomance-boost the program
 REM $DYNAMIC
-$EXEICON:'..\TargonIndustries\Vedit\internal\ico\Vedit_2.ico'
+$EXEICON:'..\TargonIndustries\Vedit\internal\ico\Vedit_4.ico'
 
 '--------------------------------------------------------------------------------------------------------------------------------------'
 
@@ -690,12 +690,19 @@ SUB displayFileBG
     END SELECT
     LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), bgCol, BF
     IF _TRIM$(global.fileBackground) = "checkerboard" THEN
-        LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), _RGBA(102, 102, 102, 255), BF
+        LINE (file.xOffset, file.yOffset)-(file.xOffset + (file.w * file.zoom), file.yOffset + (file.h * file.zoom)), _RGBA(240, 240, 240, 255), BF
         gridsize = 10 * file.zoom
         IF file.w * file.zoom > gridsize THEN
-            xpos = 0: DO: xpos = xpos + (gridsize * 2)
-                LINE (xpos, 0)-(xpos + gridsize, (file.h * file.zoom)), _RGBA(204, 204, 204, 255), BF
-            LOOP UNTIL xpos + gridsize >= (file.w * file.zoom) / 2
+            xpos = -(gridsize * 2): DO: xpos = xpos + (gridsize * 2)
+                ypos = -(gridsize * 2): DO: ypos = ypos + (gridsize * 2)
+                    LINE (file.xOffset + xpos, file.yOffset + ypos)-(file.xOffset + xpos + gridsize, file.yOffset + ypos + gridsize), _RGBA(204, 204, 204, 255), BF
+                LOOP UNTIL ypos + gridsize >= (file.h * file.zoom) - gridsize
+            LOOP UNTIL xpos + gridsize >= (file.w * file.zoom) - gridsize
+            xpos = -gridsize: DO: xpos = xpos + (gridsize * 2)
+                ypos = -gridsize: DO: ypos = ypos + (gridsize * 2)
+                    LINE (file.xOffset + xpos, file.yOffset + ypos)-(file.xOffset + xpos + gridsize, file.yOffset + ypos + gridsize), _RGBA(204, 204, 204, 255), BF
+                LOOP UNTIL ypos + gridsize >= (file.h * file.zoom) - gridsize
+            LOOP UNTIL xpos + gridsize >= (file.w * file.zoom) - gridsize
         END IF
     END IF
 END SUB
@@ -1078,7 +1085,7 @@ SUB RectangleToPolar (Image AS LONG)
     DIM p, maxp AS _UNSIGNED _INTEGER64
     maxp = maxx * maxy
     'use on error free code ONLY!
-    '$CHECKING:OFF
+    $CHECKING:OFF
     DO
         p = p + 1
         y = FIX((p / maxp) * maxy)
@@ -1094,20 +1101,24 @@ SUB RectangleToPolar (Image AS LONG)
     newImg = _NEWIMAGE(maxx, maxy, 32)
     prevDest& = _DEST
     _DEST newImg
+    COLOR _RGBA(0, 0, 0, 255), _RGBA(0, 0, 0, 0)
+    CLS
+    scaley = (maxx / 2 / _PI)
+    IF scaley > maxy THEN scaley = maxy / 2
     y = -1: DO: y = y + 1
-        yfactor = (1 - (y / (maxy))) * maxy * 0.25
+        yfactor = (1 - (y / (maxy))) * scaley
         x = -1: DO: x = x + 1
-            'PSET (x, y), _RGBA(imgPoints(y, x, 2), imgPoints(y, x, 1), imgPoints(y, x, 0), imgPoints(y, x, 3))
             PSET (mx - (yfactor * SIN(2 * _PI * (1 - (x / maxx)))), my - (yfactor * COS(2 * _PI * (1 - (x / maxx))))), _RGBA(imgPoints(y, x, 2), imgPoints(y, x, 1), imgPoints(y, x, 0), imgPoints(y, x, 3))
         LOOP UNTIL x = maxx
     LOOP UNTIL y = maxy
     _DEST Image
+    COLOR _RGBA(0, 0, 0, 255), _RGBA(0, 0, 0, 0)
     CLS
     _PUTIMAGE (0, 0)-(maxx, maxy), newImg, Image
     _FREEIMAGE newImg
     _DEST prevDest&
     'turn checking back on when done!
-    '$CHECKING:ON
+    $CHECKING:ON
     _MEMFREE Buffer
 END SUB
 
