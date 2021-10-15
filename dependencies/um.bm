@@ -108,7 +108,7 @@ SUB displayMenu (elementindex AS INTEGER, keyhit AS INTEGER)
     DIM coord AS rectangle
     getCoord coord, elementindex, currentfont
 
-    IF this.expand AND expandable(this) THEN
+    IF expandable(this) AND this.expand = -1 THEN
         expandElement this, elementindex, currentfont
     END IF
 
@@ -156,6 +156,16 @@ FUNCTION getTitleID
     DO: e = e + 1
         IF elements(e).view = currentview AND elements(e).type = "title" THEN getTitleID = e: EXIT FUNCTION
     LOOP UNTIL e = UBOUND(elements)
+END FUNCTION
+
+FUNCTION findLastChild (parentName AS STRING)
+    IF UBOUND(elements) < 1 THEN EXIT FUNCTION
+    DO: e = e + 1
+        IF elements(e).parent = parentName THEN
+            lastChild = e
+        END IF
+    LOOP UNTIL e = UBOUND(elements)
+    findLastChild = lastChild
 END FUNCTION
 
 FUNCTION add.License$ (arguments AS STRING)
@@ -326,22 +336,21 @@ SUB loadUI (reload AS _BYTE)
                             REDIM _PRESERVE elements(UBOUND(elements) + 1) AS element
                             eub = UBOUND(elements)
                             elements(eub).view = viewname(lview)
-                            elements(eub).type = getArgument$(uielement$, "type")
+                            elements(eub).action = getArgument$(uielement$, "action")
                             elements(eub).allownumbers = getArgumentv(uielement$, "allownumbers")
                             elements(eub).allowtext = getArgumentv(uielement$, "allowtext")
                             elements(eub).allowspecial = getArgumentv(uielement$, "allowspecial")
+                            elements(eub).angle = getArgument$(uielement$, "angle")
+                            elements(eub).buffer = getArgument$(uielement$, "buffer")
+                            elements(eub).color = getArgument$(uielement$, "color")
+                            elements(eub).content = getArgument$(uielement$, "content")
                             elements(eub).name = getArgument$(uielement$, "name")
                             elements(eub).x = getArgument$(uielement$, "x")
                             elements(eub).y = getArgument$(uielement$, "y")
                             elements(eub).w = getArgument$(uielement$, "w")
                             elements(eub).h = getArgument$(uielement$, "h")
-                            elements(eub).color = getArgument$(uielement$, "color")
                             elements(eub).hovercolor = getArgument$(uielement$, "hovercolor")
                             elements(eub).style = getArgument$(uielement$, "style")
-                            elements(eub).text = getArgument$(uielement$, "text")
-                            elements(eub).action = getArgument$(uielement$, "action")
-                            elements(eub).angle = getArgument$(uielement$, "angle")
-                            elements(eub).buffer = getArgument$(uielement$, "buffer")
                             elements(eub).round = getArgument$(uielement$, "round")
                             elements(eub).hovertext = getArgument$(uielement$, "hovertext")
                             elements(eub).hovertextwait = getArgumentv(uielement$, "hovertextwait")
@@ -349,12 +358,14 @@ SUB loadUI (reload AS _BYTE)
                             elements(eub).url = getArgument$(uielement$, "url")
                             elements(eub).switchword = getArgument$(uielement$, "switchword")
                             elements(eub).group = getArgument$(uielement$, "group")
-                            elements(eub).options = getArgument$(uielement$, "options")
                             elements(eub).font = getArgument$(uielement$, "font")
-                            elements(eub).textalign = getArgument$(uielement$, "textalign")
-                            elements(eub).content = getArgument$(uielement$, "content")
-                            elements(eub).state = getArgumentv(uielement$, "state")
                             elements(eub).scroll = getArgumentv(uielement$, "scroll")
+                            elements(eub).state = getArgumentv(uielement$, "state")
+                            elements(eub).text = getArgument$(uielement$, "text")
+                            elements(eub).textalign = getArgument$(uielement$, "textalign")
+                            elements(eub).type = getArgument$(uielement$, "type")
+                            elements(eub).options = getArgument$(uielement$, "options")
+                            elements(eub).parent = getArgument$(uielement$, "parent")
                             elements(eub).selected = 0
 
                             checkGlobal elements(eub)
@@ -1090,7 +1101,12 @@ FUNCTION getEXPos$ (e AS INTEGER, currentfont AS LONG)
     ELSEIF (elements(e).x = "right" OR elements(e).x = "r") THEN
         getEXPos$ = LST$(_WIDTH(0) - VAL(getEWidth$(e, currentfont)) - global.margin)
     ELSEIF (elements(e).x = "margin" OR elements(e).x = "m" OR elements(e).x = "left" OR elements(e).x = "l" OR elements(e).x = "0") THEN
-        getEXPos$ = LST$(global.margin)
+        IF elements(e).parent <> "" THEN
+            parentID = getElementID(elements(e).parent)
+            getEXPos$ = LST$(global.margin + VAL(getEXPos$(parentID, currentfont)))
+        ELSE
+            getEXPos$ = LST$(global.margin)
+        END IF
     ELSEIF (elements(e).x = "center" OR elements(e).x = "c") THEN
         getEXPos$ = LST$(INT((_WIDTH(0) / 2) - (VAL(getEWidth$(e, currentfont)) / 2)))
     ELSEIF INSTR(elements(e).y, "/") THEN
@@ -1107,7 +1123,12 @@ FUNCTION getEXPos$ (e AS INTEGER, currentfont AS LONG)
             getEXPos$ = getEXPos$(refID, currentfont)
         end if
     ELSE
-        getEXPos$ = elements(e).x
+        IF elements(e).parent <> "" THEN
+            parentID = getElementID(elements(e).parent)
+            getEXPos$ = LST$(VAL(elements(e).x) + VAL(getEXPos$(parentID, currentfont)))
+        ELSE
+            getEXPos$ = elements(e).x
+        END IF
     END IF
 END FUNCTION
 
@@ -1125,7 +1146,12 @@ FUNCTION getEYPos$ (e AS INTEGER, currentfont AS LONG)
     ELSEIF (elements(e).y = "bottom" OR elements(e).y = "b") THEN
         getEYPos$ = LST$(_HEIGHT(0) - VAL(getEHeight$(e, currentfont)) - global.margin)
     ELSEIF (elements(e).y = "margin" OR elements(e).y = "m" OR elements(e).y = "top" OR elements(e).y = "t" OR elements(e).y = "0") THEN
-        getEYPos$ = LST$(global.margin)
+        IF elements(e).parent <> "" THEN
+            parentID = getElementID(elements(e).parent)
+            getEYPos$ = LST$(global.margin + VAL(getEYPos$(parentID, currentfont)))
+        ELSE
+            getEYPos$ = LST$(global.margin)
+        END IF
     ELSEIF (elements(e).y = "center" OR elements(e).y = "c") THEN
         getEYPos$ = LST$(INT((_HEIGHT(0) / 2) - (VAL(getEHeight$(e, currentfont)))) / 2)
     ELSEIF INSTR(elements(e).y, "/") THEN
@@ -1142,7 +1168,12 @@ FUNCTION getEYPos$ (e AS INTEGER, currentfont AS LONG)
             getEYPos$ = getEYPos$(refID, currentfont)
         end if
     ELSE
-        getEYPos$ = elements(e).y
+        IF elements(e).parent <> "" THEN
+            parentID = getElementID(elements(e).parent)
+            getEYPos$ = LST$(VAL(elements(e).y) + VAL(getEYPos$(parentID, currentfont)))
+        ELSE
+            getEYPos$ = elements(e).y
+        END IF
     END IF
 END FUNCTION
 
@@ -1154,7 +1185,12 @@ FUNCTION getEWidth$ (e AS INTEGER, currentfont AS LONG)
             getEWidth$ = LST$(VAL(elements(e).w) + (_FONTWIDTH(currentfont) * (LEN(elements(e).text) + 1 + SGN(LEN(elements(e).buffer)) + LEN(elements(e).buffer))) + 1 + (2 * global.padding))
         END IF
     ELSEIF elements(e).w = "full" THEN
-        getEWidth$ = LST$(_WIDTH(0) - VAL(getEXPos$(e, currentfont)) - global.margin)
+        IF elements(e).parent <> "" THEN
+            parentID = getElementID(elements(e).parent)
+            getEWidth$ = LST$(VAL(getEWidth$(parentID, currentfont)) - VAL(getEXPos$(e, currentfont)) - global.margin)
+        ELSE
+            getEWidth$ = LST$(_WIDTH(0) - VAL(getEXPos$(e, currentfont)) - global.margin)
+        END IF
     ELSEIF elements(e).w = "span" THEN
         getEWidth$ = LST$(VAL(getEXPos$(e + 1, currentfont)) - (VAL(getEXPos$(e - 1, currentfont)) + (VAL(getEWidth$(e - 1, currentfont)))) - (2 * global.margin))
     ELSEIF INSTR(elements(e).w, "/m") THEN ' REPLACE WITH MATH PARSER
@@ -1193,6 +1229,13 @@ FUNCTION getEHeight$ (e AS INTEGER, currentfont AS LONG)
     IF elements(e).type = "title" THEN getEHeight$ = LST$(_FONTHEIGHT(font_big) + (2 * global.padding)): EXIT FUNCTION
     IF elements(e).h = "0" THEN
         getEHeight$ = LST$(_FONTHEIGHT(font_normal) + (2 * global.padding))
+    ELSEIF elements(e).h = "full" THEN
+        IF elements(e).parent <> "" THEN
+            parentID = getElementID(elements(e).parent)
+            getEHeight$ = LST$(VAL(getEHeight$(parentID, currentfont)) - VAL(getEyPos$(e, currentfont)) - global.margin)
+        ELSE
+            getEHeight$ = LST$(_HEIGHT(0) - VAL(getEyPos$(e, currentfont)) - global.margin)
+        END IF
     ELSEIF (elements(e).h = "nextt" OR elements(e).h = "next.top" OR elements(e).h = "nt") AND e < UBOUND(elements) THEN
         getEHeight$ = LST$(VAL(getEYPos$(e + 1, currentfont)) - (global.margin) - VAL(getEYPos$(e, currentfont)))
     ELSEIF (elements(e).h = "prevt" OR elements(e).h = "prev.top" OR elements(e).h = "pt") AND e < UBOUND(elements) THEN

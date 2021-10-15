@@ -50,6 +50,13 @@ SUB doThis (arguments AS STRING, recursivecall AS _BYTE) 'program-specific actio
                 previousview = currentview
                 currentview = newview
             END IF
+            IF UBOUND(elements) > 0 THEN
+                DO: e = e + 1
+                    IF elements(e).expand THEN
+                        elements(e).expand = 0
+                    END IF
+                LOOP UNTIL e = UBOUND(elements)
+            END IF
         CASE "tool"
             file.activeTool = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
     END SELECT

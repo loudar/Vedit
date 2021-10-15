@@ -542,7 +542,6 @@ SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS
             imageLayer(ID).file = sourceFile
             IF sourceFile <> "" THEN
                 imageLayer(ID).img = _LOADIMAGE(sourceFile, 32)
-                RectangleToPolar imageLayer(ID).img
             ELSE
                 imageLayer(ID).img = _NEWIMAGE(w, h, 32)
             END IF
@@ -1219,6 +1218,8 @@ SUB displayList (coord AS rectangle, content AS STRING, this AS element)
             IF UBOUND(layerInfo) > 0 THEN
                 IF this.state = 0 THEN
                     countRelation = (INT((coord.h - (3 * margin)) / lineheight) / UBOUND(layerInfo))
+                    lastChild = findLastChild(this.name)
+                    IF lastChild > 0 THEN yOffset = VAL(getEYPos$(lastChild, _FONT)) + VAL(getEHeight$(lastChild, _FONT)) - VAL(getEYPos$(getElementID(this.name), _FONT))
                     IF countRelation < 1 THEN
                         IF mouse.scroll AND inBounds(mcoord, coord) THEN
                             this.scroll = this.scroll + (mouse.scroll * lineheight)
@@ -1234,7 +1235,7 @@ SUB displayList (coord AS rectangle, content AS STRING, this AS element)
                     END IF
                     DO: i = i + 1
                         lcoord.x = coord.x + margin
-                        lcoord.y = coord.y + (1.5 * margin) + (lineheight * (i - 1)) - this.scroll
+                        lcoord.y = coord.y + (1.5 * margin) + (lineheight * (i - 1)) - this.scroll + yOffset
                         lcoord.w = coord.w - (margin * 3)
                         lcoord.h = lineheight
                         IF lcoord.y + lcoord.h < coord.y + coord.h AND lcoord.y > coord.y THEN
