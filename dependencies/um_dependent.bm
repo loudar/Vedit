@@ -375,7 +375,12 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
             rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=bf;angle=0;round=0", _RGBA(0, 0,0, 255)
             rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=b;angle=0;round=0", this.drawcolor
             adjustZoom coord
-            displayLayers coord
+            DIM modcoord AS rectangle
+            modcoord.x = coord.x + 1
+            modcoord.y = coord.y + 1
+            modcoord.w = coord.w - 2
+            modcoord.h = coord.h - 2
+            displayLayers modcoord
         CASE "tool"
             IF this.name = file.activeTool THEN rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=bf;angle=" + this.angle + ";round=" + this.round, this.drawcolor
             rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=b;angle=" + this.angle + ";round=" + this.round, this.drawcolor

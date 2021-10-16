@@ -48,9 +48,9 @@ TYPE imageLayer
 END TYPE
 REDIM SHARED imageLayer(0) AS imageLayer
 TYPE imageEffects
-    result AS LONG
-    contentid AS _INTEGER64
-    AS SINGLE brightness, contrast, r, g, b
+    AS _INTEGER64 layerID, effectID
+    AS LONG resultImg
+    AS DOUBLE value1, value2, value3, value4
 END TYPE
 TYPE currentImage
     AS INTEGER xOff, yOff, ID, corner
@@ -695,13 +695,14 @@ SUB displayFileBG
             xpos = -(gridsize * 2): DO: xpos = xpos + (gridsize * 2)
                 ypos = -(gridsize * 2): DO: ypos = ypos + (gridsize * 2)
                     LINE (file.xOffset + xpos, file.yOffset + ypos)-(file.xOffset + xpos + gridsize, file.yOffset + ypos + gridsize), _RGBA(204, 204, 204, 255), BF
-                LOOP UNTIL ypos + gridsize >= (file.h * file.zoom) - gridsize
-            LOOP UNTIL xpos + gridsize >= (file.w * file.zoom) - gridsize
+                LOOP UNTIL ypos + (2 * gridsize) + 1 >= (file.h * file.zoom)
+            LOOP UNTIL xpos + (2 * gridsize) + 1 >= (file.w * file.zoom)
+
             xpos = -gridsize: DO: xpos = xpos + (gridsize * 2)
                 ypos = -gridsize: DO: ypos = ypos + (gridsize * 2)
                     LINE (file.xOffset + xpos, file.yOffset + ypos)-(file.xOffset + xpos + gridsize, file.yOffset + ypos + gridsize), _RGBA(204, 204, 204, 255), BF
-                LOOP UNTIL ypos + gridsize >= (file.h * file.zoom) - gridsize
-            LOOP UNTIL xpos + gridsize >= (file.w * file.zoom) - gridsize
+                LOOP UNTIL ypos + (2 * gridsize) >= (file.h * file.zoom)
+            LOOP UNTIL xpos + (2 * gridsize) >= (file.w * file.zoom)
         END IF
     END IF
 END SUB
@@ -1115,6 +1116,8 @@ SUB RectangleToPolar (Image AS LONG)
     CLS
     _PUTIMAGE (0, 0)-(maxx, maxy), newImg, Image
     _FREEIMAGE newImg
+    ERASE imgPoints
+    DIM imgPoints(0, 0, 0) AS _UNSIGNED _BYTE
     _DEST prevDest&
     'turn checking back on when done!
     $CHECKING:ON
@@ -1204,8 +1207,7 @@ FUNCTION pointEmpty (vectorPoint AS vectorPoint)
 END FUNCTION
 
 SUB displayList (coord AS rectangle, content AS STRING, this AS element)
-    REDIM text AS STRING
-    REDIM AS rectangle mcoord, lcoord, viscoord
+    REDIM AS rectangle mcoord, lcoord
     mcoord.x = mouse.x
     mcoord.y = mouse.y
     mcoord.w = 0
@@ -1238,37 +1240,8 @@ SUB displayList (coord AS rectangle, content AS STRING, this AS element)
                         lcoord.y = coord.y + (1.5 * margin) + (lineheight * (i - 1)) - this.scroll + yOffset
                         lcoord.w = coord.w - (margin * 3)
                         lcoord.h = lineheight
-                        IF lcoord.y + lcoord.h < coord.y + coord.h AND lcoord.y > coord.y THEN
-                            text = layerInfo(i).name
-                            viswidth = _FONTHEIGHT
-                            IF LEN(text) * _FONTWIDTH >= lcoord.w - viswidth - global.margin THEN
-                                cutlength = INT((lcoord.w - viswidth - global.margin) / _FONTWIDTH)
-                                text = MID$(text, 1, cutlength - 3) + "..."
-                            END IF
-
-                            IF i = file.activeLayer THEN
-                                rectangle "x=" + LST$(lcoord.x) + ";y=" + LST$(lcoord.y - (global.margin / 2)) + ";w=" + LST$(lcoord.w + global.margin) + ";h=" + LST$(_FONTHEIGHT + global.margin) + ";style=bf;angle=0;round=" + LST$(global.round), col&("bg2")
-                            END IF
-
-                            viscoord.x = lcoord.x + (lcoord.w - viswidth)
-                            viscoord.y = lcoord.y
-                            viscoord.w = viswidth
-                            viscoord.h = _FONTHEIGHT
-                            IF layerInfo(i).enabled THEN
-                                rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=bf;angle=0;round=" + LST$(global.round), col&("ui")
-                                checkmargin = 2
-                                drawShape "x=" + LST$(viscoord.x + checkmargin) + ";y=" + LST$(viscoord.y + checkmargin) + ";w=" + LST$(viscoord.w - (checkmargin * 3)) + ";h=" + LST$(viscoord.h - (checkmargin * 2)) + ";shape=check;thickness=2", col&("bg1")
-                            ELSE
-                                rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=bf;angle=0;round=" + LST$(global.round), col&("ui")
-                            END IF
-                            _PRINTSTRING (lcoord.x + margin, lcoord.y + 2), text
-
-                            IF inBounds(mcoord, viscoord) AND mouse.left AND mouse.lefttimedif > .1 THEN
-                                IF layerInfo(i).enabled = 0 THEN layerInfo(i).enabled = -1 ELSE layerInfo(i).enabled = 0
-                            ELSEIF inBounds(mcoord, lcoord) AND mouse.left THEN
-                                'LINE (lcoord.x, lcoord.y)-(lcoord.x + lcoord.w, lcoord.y + lcoord.h), _RGBA(255, 0, 0, 255), B
-                                file.activeLayer = i
-                            END IF
+                        IF lcoord.y + lcoord.h < coord.y + coord.h AND lcoord.y > coord.y + yOffset THEN
+                            drawLayerListElement i, lcoord, mcoord
                         END IF
                     LOOP UNTIL i = UBOUND(layerInfo)
                 ELSEIF this.state = -1 THEN
@@ -1276,6 +1249,41 @@ SUB displayList (coord AS rectangle, content AS STRING, this AS element)
                 END IF
             END IF
     END SELECT
+END SUB
+
+SUB drawLayerListElement (i, coord AS rectangle, mcoord AS rectangle)
+    REDIM text AS STRING
+    REDIM AS rectangle viscoord
+    text = layerInfo(i).name
+    viswidth = _FONTHEIGHT
+    IF LEN(text) * _FONTWIDTH >= coord.w - viswidth - global.margin THEN
+        cutlength = INT((coord.w - viswidth - global.margin) / _FONTWIDTH)
+        text = MID$(text, 1, cutlength - 3) + "..."
+    END IF
+
+    IF i = file.activeLayer THEN
+        rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y - (global.margin / 2)) + ";w=" + LST$(coord.w + global.margin) + ";h=" + LST$(_FONTHEIGHT + global.margin) + ";style=bf;angle=0;round=" + LST$(global.round), col&("bg2")
+    END IF
+
+    viscoord.x = coord.x + (coord.w - viswidth)
+    viscoord.y = coord.y
+    viscoord.w = viswidth
+    viscoord.h = _FONTHEIGHT
+    IF layerInfo(i).enabled THEN
+        rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=bf;angle=0;round=" + LST$(global.round), col&("ui")
+        checkmargin = 2
+        drawShape "x=" + LST$(viscoord.x + checkmargin) + ";y=" + LST$(viscoord.y + checkmargin) + ";w=" + LST$(viscoord.w - (checkmargin * 3)) + ";h=" + LST$(viscoord.h - (checkmargin * 2)) + ";shape=check;thickness=2", col&("bg1")
+    ELSE
+        rectangle "x=" + LST$(viscoord.x) + ";y=" + LST$(viscoord.y) + ";w=" + LST$(viscoord.w) + ";h=" + LST$(viscoord.h) + ";style=bf;angle=0;round=" + LST$(global.round), col&("ui")
+    END IF
+    _PRINTSTRING (coord.x + margin, coord.y + 2), text
+
+    IF inBounds(mcoord, viscoord) AND mouse.left AND mouse.lefttimedif > .1 THEN
+        IF layerInfo(i).enabled = 0 THEN layerInfo(i).enabled = -1 ELSE layerInfo(i).enabled = 0
+    ELSEIF inBounds(mcoord, coord) AND mouse.left THEN
+        'LINE (coord.x, coord.y)-(coord.x + coord.w, coord.y + coord.h), _RGBA(255, 0, 0, 255), B
+        file.activeLayer = i
+    END IF
 END SUB
 
 SUB drawShape (arguments AS STRING, clr AS LONG)

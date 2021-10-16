@@ -8,7 +8,6 @@ type=text;x=left;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.x;text=X
 type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.y;text=Y;hovertext=Current layer vertical position
 type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.w;text=W;hovertext=Current layer width
 type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.h;text=H;hovertext=Current layer height
-type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=file.zoom;text=%;hovertext=Current file zoom
 type=checkbox;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;text=Show grid;name=showgrid
 type=checkbox;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;text=Snap to grid;name=snapgrid
 /type=list;x=left;y=prevb;w=0.25/m4;h=(canvas);color=ui;hovercolor=ui2;name=toollist;style=b;angle=0;text=Tools;content=tools;hovertext=A list of all tools available
@@ -21,3 +20,4 @@ type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=back;style
 type=button;x=prevl;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=settings;style=b;angle=0;text=Settings;action=view.settings;hovertext=Opens the settings menu
 type=button;parent=layerlist;x=margin;y=margin;w=flex;h=25;color=ui;hovercolor=ui2;name=addimage;style=b;angle=0;text=+I;action=add.image
 type=button;parent=layerlist;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=addvector;style=b;angle=0;text=+V;action=add.vector
+type=text;x=margin;y=margin;w=flex;h=25;color=ui;hovercolor=ui2;name=file.zoom;text=%;hovertext=Current file zoom;parent=canvas;
