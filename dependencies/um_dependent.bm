@@ -1,64 +1,37 @@
-SUB doThis (arguments AS STRING, recursivecall AS _BYTE) 'program-specific actions
-    IF global.actionlock AND NOT recursivecall THEN
-        EXIT SUB
-    ELSE
-        IF mouse.left THEN global.actionlock = -1
-    END IF
-    DIM AS STRING license, url, success
-    action$ = getArgument$(arguments, "action")
-    license = getArgument$(arguments, "license")
-    transmittedtext = getArgument$(arguments, "transmit")
-    url = getArgument$(arguments, "url")
-    SELECT CASE action$
-        CASE "save.file"
-            saveFileDialog
-        CASE "new.file"
-            openFile ""
-        CASE "open.file"
-            openFileDialog
-        CASE "add.vector"
-             createLayer "Untitled", 0, 0, file.w, file.h, "vector", UBOUND(vectorPoints, 1) + 1, ""
-        CASE "add.image"
-             createLayer "Untitled", 0, 0, file.w, file.h, "image", UBOUND(imageLayer) + 1, ""
-        CASE "add.license"
-            IF set(license) THEN
-                success = add.License$("license=" + license)
-                doThis "action=view.main;transmit=" + success, -1
-            ELSE
-                doThis "action=view.add.license", -1
-            END IF
-        CASE "web"
-            openBrowser url
-        CASE "check.license"
-            loadConfig
-        CASE "saveconfig"
-            saveConfig
-            loadConfig
-        CASE "resetconfig"
-            resetConfig
-            loadConfig
-        CASE "quit"
-            SYSTEM
-    END SELECT
-    SELECT CASE MID$(action$, 1, INSTR(action$, ".") - 1)
-        CASE "view"
-            REDIM newview AS STRING
-            newview = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
-            IF newview = "previous" THEN
-                SWAP currentview, previousview
-            ELSE
-                previousview = currentview
-                currentview = newview
-            END IF
-            IF UBOUND(elements) > 0 THEN
-                DO: e = e + 1
-                    IF elements(e).expand THEN
-                        elements(e).expand = 0
-                    END IF
-                LOOP UNTIL e = UBOUND(elements)
-            END IF
-        CASE "tool"
-            file.activeTool = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
+SUB drawShape (arguments AS STRING, clr AS LONG)
+    DIM AS _FLOAT x, y, w, h, thickness
+    x = getArgumentv(arguments, "x")
+    y = getArgumentv(arguments, "y")
+    w = getArgumentv(arguments, "w")
+    h = getArgumentv(arguments, "h")
+    thickness = getArgumentv(arguments, "thickness")
+    SELECT CASE getArgument$(arguments, "shape")
+        CASE "+"
+            LINE (x + (w / 2) - (thickness / 2), y)-(x + (w / 2) + (thickness / 2), y + h), clr, BF
+            LINE (x, y + (h / 2) - (thickness / 2))-(x + w, y + (h / 2) + (thickness / 2)), clr, BF
+        CASE "check"
+            IF thickness = 0 THEN thickness = 1
+            t = 0: DO: t = t + 1
+                rt = t / 2
+                LINE (x + rt, y + (h / 1.5))-(x + (w / 3) + rt, y + h), clr
+                LINE (x + (w / 3) + rt, y + h)-(x + w + rt, y), clr
+            LOOP UNTIL t = thickness * 2
+        CASE "resize1"
+            IF thickness = 0 THEN thickness = 2
+            cursorsize = 30
+            arrowsize = cursorsize / 2
+            rectangle "x=" + LST$(x - (thickness * 1.2)) + ";y=" + LST$(y - (cursorsize / 2) - (thickness / 1.5)) + ";w=" + LST$(thickness + 1) + ";h=" + LST$(cursorsize) + ";angle=315;style=bf;round=0", clr
+            rectangle "x=" + LST$((x - (cursorsize / 2))) + ";y=" + LST$(y - (cursorsize / 2)) + ";w=" + LST$(thickness) + ";h=" + LST$(arrowsize) + ";angle=0;style=bf;round=0", clr
+            rectangle "x=" + LST$((x - (cursorsize / 2))) + ";y=" + LST$(y - (cursorsize / 2)) + ";w=" + LST$(arrowsize) + ";h=" + LST$(thickness) + ";angle=0;style=bf;round=0", clr
+            rectangle "x=" + LST$((x + (cursorsize / 3)) - (thickness / 2)) + ";y=" + LST$(y + (cursorsize / 3) - arrowsize + (thickness / 2)) + ";w=" + LST$(thickness) + ";h=" + LST$(arrowsize) + ";angle=0;style=bf;round=0", clr
+            rectangle "x=" + LST$((x + (cursorsize / 3)) - arrowsize + (thickness / 2)) + ";y=" + LST$(y + (cursorsize / 3) - (thickness / 2)) + ";w=" + LST$(arrowsize) + ";h=" + LST$(thickness) + ";angle=0;style=bf;round=0", clr
+        CASE "resize2"
+            IF thickness = 0 THEN thickness = 2
+            t = 0: DO: t = t + 1
+                rt = t / 2
+                LINE (x + (cursorsize / 2) + rt, y - (cursorsize / 2))-(x - (cursorsize / 2) + rt, y + (cursorsize / 2)), clr
+            LOOP UNTIL t = thickness * 2
+        CASE "triangle"
     END SELECT
 END SUB
 
@@ -355,6 +328,16 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
                 COLOR this.drawcolor, col&("t")
             END IF
             drawElementText coord, this, currentfont
+        CASE "menu"
+            IF NOT this.expand THEN rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=0;round=" + this.round, this.drawcolor
+            coord.x = coord.x + (2 * global.padding)
+            coord.y = coord.y + global.padding
+            IF LCASE$(this.style) = "bf" THEN
+                COLOR col&("bg1"), col&("t")
+            ELSE
+                COLOR this.drawcolor, col&("t")
+            END IF
+            drawElementText coord, this, currentfont
         CASE "slider"
             coord.y = coord.y + global.padding
             COLOR this.drawcolor, col&("t")
@@ -391,6 +374,8 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
                 _PUTIMAGE (coord.x + dist, coord.y + dist)-(coord.x + ((_WIDTH(img) / _HEIGHT(img)) * (coord.h - dist)), coord.y + (coord.h - dist)), img
                 _FREEIMAGE img
             END IF
+        CASE "layerListItem"
+
     END SELECT
     displaySelection this, elementindex, coord, currentfont
 END SUB
@@ -445,25 +430,6 @@ SUB displayElement (elementindex AS INTEGER, keyhit AS INTEGER) 'parses abstract
     drawElement this, elementindex, coord, invoke, currentfont
 
     elements(elementindex) = this
-END SUB
-
-SUB clickListItem (this AS element, array() AS STRING, n AS INTEGER)
-    SELECT CASE this.name
-        CASE "nodelist"
-            doThis "action=view.nodegraph;nodetarget=" + array(n), 0
-        CASE "linklist"
-            'TODO
-    END SELECT
-END SUB
-
-SUB getListItems (array() AS STRING, sourcearray() AS STRING, index AS INTEGER, this AS element)
-    SELECT CASE this.name
-        'CASE "linklist"
-        '    REDIM AS STRING array(3)
-        '    array(1) = getargument$(sourcearray(index), "nodeorigin")
-        '    array(2) = getargument$(sourcearray(index), "linkname")
-        '    array(3) = getargument$(sourcearray(index), "nodetarget")
-    END SELECT
 END SUB
 
 SUB loadConfig

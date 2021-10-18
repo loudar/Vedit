@@ -34,6 +34,7 @@ REDIM SHARED file AS fileInfo
 '$INCLUDE: 'dependencies/gif.bi'
 '$INCLUDE: 'dependencies/opensave.bi'
 '$INCLUDE: 'dependencies/saveimage.bi'
+REDIM SHARED layerListElements(0) AS element
 
 '--------------------------------------------------------------------------------------------------------------------------------------'
 
@@ -1207,7 +1208,7 @@ FUNCTION pointEmpty (vectorPoint AS vectorPoint)
 END FUNCTION
 
 SUB displayList (coord AS rectangle, content AS STRING, this AS element)
-    REDIM AS rectangle mcoord, lcoord
+    REDIM AS rectangle lcoord, mcoord
     mcoord.x = mouse.x
     mcoord.y = mouse.y
     mcoord.w = 0
@@ -1241,7 +1242,7 @@ SUB displayList (coord AS rectangle, content AS STRING, this AS element)
                         lcoord.w = coord.w - (margin * 3)
                         lcoord.h = lineheight
                         IF lcoord.y + lcoord.h < coord.y + coord.h AND lcoord.y > coord.y + yOffset THEN
-                            drawLayerListElement i, lcoord, mcoord
+                            drawLayerListElement i, lcoord
                         END IF
                     LOOP UNTIL i = UBOUND(layerInfo)
                 ELSEIF this.state = -1 THEN
@@ -1251,11 +1252,46 @@ SUB displayList (coord AS rectangle, content AS STRING, this AS element)
     END SELECT
 END SUB
 
-SUB drawLayerListElement (i, coord AS rectangle, mcoord AS rectangle)
+SUB createLayerListElement (text AS STRING, index, state)
+    IF index > UBOUND(layerListElements) THEN
+        REDIM _PRESERVE layerListElements(index) AS element
+    END IF
+    elements(index).action = "layer.rename"
+    elements(index).buffer = ""
+    elements(index).color = "ui"
+    elements(index).content = ""
+    elements(index).name = text
+    elements(index).x = "margin"
+    elements(index).y = "prevb"
+    elements(index).w = "full"
+    elements(index).h = "flex"
+    elements(index).hovercolor = "ui2"
+    elements(index).style = "bf"
+    elements(index).hovertext = text
+    elements(index).hovertextwait = getArgumentv(uielement$, "hovertextwait")
+    elements(index).padding = getArgument$(uielement$, "padding")
+    elements(index).url = getArgument$(uielement$, "url")
+    elements(index).switchword = getArgument$(uielement$, "switchword")
+    elements(index).group = getArgument$(uielement$, "group")
+    elements(index).font = getArgument$(uielement$, "font")
+    elements(index).scroll = getArgumentv(uielement$, "scroll")
+    elements(index).state = getArgumentv(uielement$, "state")
+    elements(index).text = text
+    elements(index).type = "layerListElement"
+    elements(index).options = getArgument$(uielement$, "options")
+    elements(index).parent = getArgument$(uielement$, "parent")
+END SUB
+
+SUB drawLayerListElement (i, coord AS rectangle)
     REDIM text AS STRING
-    REDIM AS rectangle viscoord
+    REDIM AS rectangle viscoord, mcoord
+    mcoord.x = mouse.x
+    mcoord.y = mouse.y
+    mcoord.w = 0
+    mcoord.h = 0
     text = layerInfo(i).name
     viswidth = _FONTHEIGHT
+    margin = global.margin
     IF LEN(text) * _FONTWIDTH >= coord.w - viswidth - global.margin THEN
         cutlength = INT((coord.w - viswidth - global.margin) / _FONTWIDTH)
         text = MID$(text, 1, cutlength - 3) + "..."
@@ -1286,41 +1322,90 @@ SUB drawLayerListElement (i, coord AS rectangle, mcoord AS rectangle)
     END IF
 END SUB
 
-SUB drawShape (arguments AS STRING, clr AS LONG)
-    DIM AS _FLOAT x, y, w, h, thickness
-    x = getArgumentv(arguments, "x")
-    y = getArgumentv(arguments, "y")
-    w = getArgumentv(arguments, "w")
-    h = getArgumentv(arguments, "h")
-    thickness = getArgumentv(arguments, "thickness")
-    SELECT CASE getArgument$(arguments, "shape")
-        CASE "+"
-            LINE (x + (w / 2) - (thickness / 2), y)-(x + (w / 2) + (thickness / 2), y + h), clr, BF
-            LINE (x, y + (h / 2) - (thickness / 2))-(x + w, y + (h / 2) + (thickness / 2)), clr, BF
-        CASE "check"
-            IF thickness = 0 THEN thickness = 1
-            t = 0: DO: t = t + 1
-                rt = t / 2
-                LINE (x + rt, y + (h / 1.5))-(x + (w / 3) + rt, y + h), clr
-                LINE (x + (w / 3) + rt, y + h)-(x + w + rt, y), clr
-            LOOP UNTIL t = thickness * 2
-        CASE "resize1"
-            IF thickness = 0 THEN thickness = 2
-            cursorsize = 30
-            arrowsize = cursorsize / 2
-            rectangle "x=" + LST$(x - (thickness * 1.2)) + ";y=" + LST$(y - (cursorsize / 2) - (thickness / 1.5)) + ";w=" + LST$(thickness + 1) + ";h=" + LST$(cursorsize) + ";angle=315;style=bf;round=0", clr
-            rectangle "x=" + LST$((x - (cursorsize / 2))) + ";y=" + LST$(y - (cursorsize / 2)) + ";w=" + LST$(thickness) + ";h=" + LST$(arrowsize) + ";angle=0;style=bf;round=0", clr
-            rectangle "x=" + LST$((x - (cursorsize / 2))) + ";y=" + LST$(y - (cursorsize / 2)) + ";w=" + LST$(arrowsize) + ";h=" + LST$(thickness) + ";angle=0;style=bf;round=0", clr
-            rectangle "x=" + LST$((x + (cursorsize / 3)) - (thickness / 2)) + ";y=" + LST$(y + (cursorsize / 3) - arrowsize + (thickness / 2)) + ";w=" + LST$(thickness) + ";h=" + LST$(arrowsize) + ";angle=0;style=bf;round=0", clr
-            rectangle "x=" + LST$((x + (cursorsize / 3)) - arrowsize + (thickness / 2)) + ";y=" + LST$(y + (cursorsize / 3) - (thickness / 2)) + ";w=" + LST$(arrowsize) + ";h=" + LST$(thickness) + ";angle=0;style=bf;round=0", clr
-        CASE "resize2"
-            IF thickness = 0 THEN thickness = 2
-            t = 0: DO: t = t + 1
-                rt = t / 2
-                LINE (x + (cursorsize / 2) + rt, y - (cursorsize / 2))-(x - (cursorsize / 2) + rt, y + (cursorsize / 2)), clr
-            LOOP UNTIL t = thickness * 2
+SUB doThis (arguments AS STRING, recursivecall AS _BYTE) 'program-specific actions
+    IF global.actionlock AND NOT recursivecall THEN
+        EXIT SUB
+    ELSE
+        IF mouse.left THEN global.actionlock = -1
+    END IF
+    REDIM AS STRING license, url, success, newview
+    action$ = getArgument$(arguments, "action")
+    license = getArgument$(arguments, "license")
+    transmittedtext = getArgument$(arguments, "transmit")
+    url = getArgument$(arguments, "url")
+    SELECT CASE action$
+        CASE "save.file"
+            saveFileDialog
+        CASE "new.file"
+            openFile ""
+        CASE "open.file"
+            openFileDialog
+        CASE "add.vector"
+            createLayer "Untitled", 0, 0, file.w, file.h, "vector", UBOUND(vectorPoints, 1) + 1, ""
+        CASE "add.image"
+            createLayer "Untitled", 0, 0, file.w, file.h, "image", UBOUND(imageLayer) + 1, ""
+        CASE "add.license"
+            IF set(license) THEN
+                success = add.License$("license=" + license)
+                doThis "action=view.main;transmit=" + success, -1
+            ELSE
+                doThis "action=view.add.license", -1
+            END IF
+        CASE "resize.file"
+            w = getArgumentv(arguments, "w")
+            h = getArgumentv(arguments, "h")
+            wF = w / file.w
+            hF = h / file.h
+            file.w = w
+            file.h = h
+            DO: index = index + 1
+                layerInfo(index).x = layerInfo(index).x * wF
+                layerInfo(index).y = layerInfo(index).y * hF
+                layerInfo(index).w = layerInfo(index).w * wF
+                layerInfo(index).h = layerInfo(index).h * hF
+            LOOP UNTIL index = UBOUND(layerInfo)
+        CASE "web"
+            openBrowser url
+        CASE "check.license"
+            loadConfig
+        CASE "saveconfig"
+            saveConfig
+            loadConfig
+        CASE "resetconfig"
+            resetConfig
+            loadConfig
+        CASE "quit"
+            SYSTEM
+    END SELECT
+    SELECT CASE MID$(action$, 1, INSTR(action$, ".") - 1)
+        CASE "subview"
+            newview = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
+            subview = newview
+            resetExpansions
+        CASE "view"
+            newview = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
+            IF newview = "previous" THEN
+                SWAP currentview, previousview
+            ELSE
+                previousview = currentview
+                currentview = newview
+            END IF
+            resetExpansions
+        CASE "tool"
+            file.activeTool = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
     END SELECT
 END SUB
+
+SUB resetExpansions
+    IF UBOUND(elements) > 0 THEN
+        DO: e = e + 1
+            IF elements(e).expand THEN
+                elements(e).expand = 0
+            END IF
+        LOOP UNTIL e = UBOUND(elements)
+    END IF
+END SUB
+
 
 '--------------------------------------------------------------------------------------------------------------------------------------'
 

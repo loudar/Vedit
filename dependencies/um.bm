@@ -229,7 +229,7 @@ SUB displayHoverText (this AS element)
 END SUB
 
 SUB expandElement (this AS element, elementindex AS INTEGER, currentfont AS LONG)
-    DIM coord AS rectangle
+    DIM AS rectangle coord, itemcoord
     getCoord coord, elementindex, currentfont
     DIM options(0) AS STRING
     getOptionsArray options(), this
@@ -240,26 +240,55 @@ SUB expandElement (this AS element, elementindex AS INTEGER, currentfont AS LONG
     optionspadding = 6
     lineheight = _FONTHEIGHT(font_normal) + optionspadding
     coord.h = originalheight + (lineheight * (UBOUND(options))) + optionspadding
+    DO: index = index + 1
+        IF LEN(options(index)) > maxLEN THEN maxLEN = LEN(options(index))
+    LOOP UNTIL index = UBOUND(options)
+    maxWidth = maxLEN * _FONTWIDTH(currentfont) + (2 * optionspadding)
+    IF maxWidth > coord.w THEN coord.w = maxWidth
     LINE (coord.x, coord.y + lineheight + (2 * global.padding))-(coord.x + coord.w, coord.y + coord.h), col&("bg1"), BF
     rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(originalheight) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
-    DO: index = index + 1
-        DIM itemcoord AS rectangle
-        itemcoord.x = coord.x
+    maxWidth = maxLEN * _FONTWIDTH(currentfont) + (2 * optionspadding)
+    itemcoord.w = coord.w
+    itemcoord.x = coord.x
+    itemcoord.h = lineheight
+    index = 0: DO: index = index + 1
         itemcoord.y = coord.y + (lineheight * index) + optionspadding
-        itemcoord.w = coord.w
-        itemcoord.h = lineheight
+        itemtext$ = _TRIM$(options(index))
         IF mouseInBounds(itemcoord) THEN
-            IF mouse.left THEN setGlobal this.name, options(index): lockmouse = -1
+            IF MID$(itemtext$, 1, INSTR(itemtext$, ".") - 1) = "action" AND mouse.left THEN
+                doThis "action="+MID$(itemtext$, INSTR(itemtext$, ".") + 1, LEN(itemtext$)), 0
+            ELSEIF mouse.left THEN
+                setGlobal this.name, options(index): lockmouse = -1
+            END IF
             COLOR col&("seltext"), col&("t")
             LINE (itemcoord.x + 1, itemcoord.y + 1)-(itemcoord.x + itemcoord.w - 1, itemcoord.y + itemcoord.h - 1), col&("bg2"), BF
         ELSE
             COLOR col&("ui"), col&("t")
             LINE (itemcoord.x + 1, itemcoord.y + 1)-(itemcoord.x + itemcoord.w - 1, itemcoord.y + itemcoord.h - 1), col&("bg1"), BF
         END IF
-        _PRINTSTRING (itemcoord.x + (2 * global.padding), itemcoord.y + global.padding), _TRIM$(options(index))
+        IF MID$(itemtext$, 1, INSTR(itemtext$, ".") - 1) = "action" THEN
+            itemtext$ = MID$(itemtext$, INSTR(itemtext$, ".") + 1, LEN(itemtext$))
+            itemtext$ = functionText$(itemtext$)
+        END IF
+        _PRINTSTRING (itemcoord.x + (2 * global.padding), itemcoord.y + global.padding), itemtext$
     LOOP UNTIL index = UBOUND(options)
     rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=B;angle=" + this.angle + ";round=" + this.round, this.drawcolor
 END SUB
+
+FUNCTION functionText$ (functionName$)
+    SELECT CASE functionName$
+        CASE "save.file"
+            functionText$ = "Save as..."
+        CASE "new.file"
+            functionText$ = "New file"
+        CASE "open.file"
+            functionText$ = "Open file"
+        CASE "quit"
+            functionText$ = "Quit"
+        CASE ELSE
+            functionText$ = functionName$
+    END SELECT
+END FUNCTION
 
 SUB loadFonts
     REDIM AS STRING filedata(0), schemefonts, fontname
@@ -344,6 +373,7 @@ SUB loadUI (reload AS _BYTE)
                             elements(eub).buffer = getArgument$(uielement$, "buffer")
                             elements(eub).color = getArgument$(uielement$, "color")
                             elements(eub).content = getArgument$(uielement$, "content")
+                            elements(eub).draggable = getArgument$(uielement$, "draggable")
                             elements(eub).name = getArgument$(uielement$, "name")
                             elements(eub).x = getArgument$(uielement$, "x")
                             elements(eub).y = getArgument$(uielement$, "y")
@@ -496,7 +526,7 @@ SUB getOptionsArray (array() AS STRING, this AS element)
             buffer = MID$(buffer, length + 1, LEN(buffer))
         END IF
     LOOP UNTIL buffer = ""
-    IF UBOUND(array) > 0 THEN IF this.buffer = "" THEN this.buffer = array(1)
+    IF UBOUND(array) > 0 THEN IF this.buffer = "" AND this.type = "dropdown" THEN this.buffer = array(1)
 END SUB
 
 SUB openContext (this AS element)
@@ -731,7 +761,7 @@ SUB displayListArray (this AS element, array() AS STRING, coord AS rectangle, cu
 
         IF listitemy + _FONTHEIGHT(currentfont) < coord.y + coord.h THEN
             IF mouse.x > coord.x - (2 * global.padding) AND mouse.x < coord.x + coord.w - (2 * global.padding) AND mouse.y > listitemy AND mouse.y < listitemy + _FONTHEIGHT(currentfont) THEN
-                IF mouse.left THEN clickListItem this, array(), n
+                'IF mouse.left THEN clickListItem this, array(), n
                 COLOR col&("seltext"), col&("t")
                 IF n = 1 THEN
                     LINE (coord.x - (2 * global.padding) + 1, listitemy - (2 * global.padding))-(coord.x - (2 * global.padding) + coord.w - 1, listitemy - global.padding + lineheight), col&("selected"), BF
@@ -743,7 +773,7 @@ SUB displayListArray (this AS element, array() AS STRING, coord AS rectangle, cu
             END IF
 
             DIM AS STRING listitems(0)
-            getListItems listitems(), array(), n, this
+            'getListItems listitems(), array(), n, this
 
             'display info
             IF UBOUND(listitems) > 0 THEN
@@ -795,11 +825,11 @@ FUNCTION textSelectable (this AS element)
 END FUNCTION
 
 FUNCTION draggable (this AS element)
-    draggable = 0
+    IF this.draggable = "true" THEN draggable = -1 ELSE draggable = 0
 END FUNCTION
 
 FUNCTION expandable (this AS element)
-    IF this.type = "dropdown" THEN expandable = -1 ELSE expandable = 0
+    IF this.type = "dropdown" OR this.type = "menu" THEN expandable = -1 ELSE expandable = 0
 END FUNCTION
 
 FUNCTION longSelection (this AS element)
@@ -846,7 +876,7 @@ SUB elementMouseHandling (this AS element, elementindex AS INTEGER, invoke AS in
     ELSE
         this.hovertime = 0
     END IF
-    IF mouseInBounds(coord) AND (elementlock = 0 OR elementlock = elementindex) AND NOT contextopen THEN
+    IF mouseInBounds(coord) AND (elementlock = 0 OR elementlock = elementindex) AND NOT contextopen AND NOT (activeelement <> elementindex AND expanded) THEN
         IF ctrlDown THEN
             IF mouse.left AND selectable(this) THEN
                 IF this.selected = -1 THEN this.selected = 0 ELSE this.selected = -1
@@ -862,6 +892,7 @@ SUB elementMouseHandling (this AS element, elementindex AS INTEGER, invoke AS in
                     activeelement = elementindex
                     this.sel_start = 0: this.sel_end = 0
                 ELSEIF expandable(this) AND this.statelock = 0 THEN
+                    activeelement = elementindex
                     uiCall "expand", this, elementindex
                 ELSEIF this.type = "slider" AND NOT expanded THEN
                     textwidth = LEN(this.text) * _FONTWIDTH(currentfont) + global.margin
@@ -955,7 +986,7 @@ SUB uiCall (func AS STRING, this AS element, elementindex AS INTEGER)
             CASE "revert"
                 IF elementindex = history(UBOUND(history)).element THEN goBackInTime this
             CASE "expand"
-                IF this.expand = -1 THEN this.expand = 0: expanded = 0: ELSE this.expand = -1: expanded = -1
+                IF this.expand = -1 THEN this.expand = 0: expanded = 0: activeelement = 0: ELSE this.expand = -1: expanded = -1
                 this.statelock = -1
             CASE "uppercase"
                 addToHistory this, elementindex
@@ -1181,6 +1212,20 @@ FUNCTION getEWidth$ (e AS INTEGER, currentfont AS LONG)
     IF elements(e).w = "flex" OR elements(e).w = "f" THEN 'you would normally want this one for text-based elements
         IF elements(e).type = "slider" THEN
             getEWidth$ = LST$(VAL(elements(e).w) + (_FONTWIDTH(currentfont) * (LEN(elements(e).text) + 1 + SGN(LEN(elements(e).buffer)) + LEN(elements(e).buffer))) + 1 + (2 * global.padding) + global.margin + global.sliderwidth)
+        ELSEIF elements(e).type = "dropdown" AND elements(e).expand THEN
+            DIM options(0) AS STRING
+            getOptionsArray options(), elements(e)
+            optionspadding = 6
+            DO: index = index + 1
+                IF LEN(options(index)) > maxLEN THEN maxLEN = LEN(options(index))
+            LOOP UNTIL index = UBOUND(options)
+            maxWidth = maxLEN * _FONTWIDTH(currentfont) + (2 * optionspadding)
+            standardValue$ = LST$(VAL(elements(e).w) + (_FONTWIDTH(currentfont) * (LEN(elements(e).text) + 1 + SGN(LEN(elements(e).buffer)) + LEN(elements(e).buffer))) + 1 + (2 * global.padding))
+            IF maxWidth > VAL(standardValue$) THEN
+                getEWidth$ = LST$(maxWidth)
+            ELSE
+                getEWidth$ = standardValue$
+            END IF
         ELSE
             getEWidth$ = LST$(VAL(elements(e).w) + (_FONTWIDTH(currentfont) * (LEN(elements(e).text) + 1 + SGN(LEN(elements(e).buffer)) + LEN(elements(e).buffer))) + 1 + (2 * global.padding))
         END IF
