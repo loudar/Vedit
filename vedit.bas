@@ -50,6 +50,7 @@ END TYPE
 REDIM SHARED imageLayer(0) AS imageLayer
 TYPE imageEffects
     AS _INTEGER64 layerID, effectID
+    AS _BYTE isEnabled
     AS LONG resultImg
     AS DOUBLE value1, value2, value3, value4
 END TYPE
@@ -549,7 +550,6 @@ SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS
             END IF
             imageLayer(ID).w = w
             imageLayer(ID).h = h
-            RectangleToPolar imageLayer(ID).img
             'ProcessRGBImage imageLayer(ID).img, 1, 0, 0, 1
         CASE "text"
             ' create a UM element, then check for moving in displayLayers
@@ -638,25 +638,23 @@ SUB displayLayers (coord AS rectangle)
         IF file.activeLayer > UBOUND(layerInfo) THEN file.activeLayer = UBOUND(layerInfo)
         layer = 0: DO: layer = layer + 1
             IF layer = file.activeLayer THEN layerIsActive = -1 ELSE layerIsActive = 0
-            SELECT CASE layerInfo(layer).type
-                CASE "vector"
-                    IF layerIsActive AND keyhit = 21248 THEN
-                        deleteLayer layer
-                    ELSE
+            IF layerIsActive AND keyhit = 21248 THEN
+                deleteLayer layer
+            ELSE
+                SELECT CASE layerInfo(layer).type
+                    CASE "vector"
                         IF layerInfo(layer).enabled THEN
                             displayLines layerInfo(layer), layerIsActive, coord, canvasImg
                             IF layerIsActive AND file.activeTool = "move" THEN
                                 displayPoints layerInfo(layer), coord
                             END IF
                         END IF
-                    END IF
-                CASE "image"
-                    IF layerIsActive AND keyhit = 21248 THEN
-                        deleteLayer layer
-                    ELSE
+                    CASE "image"
                         IF layerInfo(layer).enabled THEN displayImageLayer layerInfo(layer), layerIsActive, layer, coord
-                    END IF
-            END SELECT
+                    CASE "text"
+                        IF layerInfo(layer).enabled THEN displayTextLayer layerInfo(layer), layerIsActive, layer, coord
+                END SELECT
+            END IF
         LOOP UNTIL layer >= UBOUND(layerInfo)
     END IF
     IF file.showgrid THEN displayGrid canvasImg
@@ -794,6 +792,10 @@ SUB deleteTextLayer (contentID AS INTEGER)
 
 END SUB
 
+SUB displayTextLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS INTEGER, canvas AS rectangle)
+
+END SUB
+
 SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS INTEGER, canvas AS rectangle)
     contentid = layer.contentid
     REDIM layerCoord AS rectangle
@@ -801,11 +803,26 @@ SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS IN
     layerCoord.y = (layer.y * file.zoom) + file.yOffset
     layerCoord.w = (layer.w * file.zoom)
     layerCoord.h = (layer.h * file.zoom)
-    IF imageLayer(contentid).img < -1 AND layer.w > 0 AND layer.h > 0 THEN _PUTIMAGE (layerCoord.x, layerCoord.y)-(layerCoord.x + layerCoord.w, layerCoord.y + layerCoord.h), imageLayer(contentid).img
+    IF imageLayer(contentid).img < -1 AND layer.w > 0 AND layer.h > 0 THEN
+        layerEffectID = layerHasEffects(layerID)
+        IF layerEffectID > 0 THEN
+            _PUTIMAGE (layerCoord.x, layerCoord.y)-(layerCoord.x + layerCoord.w, layerCoord.y + layerCoord.h), imageEffects(layerEffectID).resultImg
+        ELSE
+            _PUTIMAGE (layerCoord.x, layerCoord.y)-(layerCoord.x + layerCoord.w, layerCoord.y + layerCoord.h), imageLayer(contentid).img
+        END IF
+    END IF
     IF layerIsActive THEN
         displayLayerOutline layerCoord, layer, layerIsActive, layerID, canvas
     END IF
 END SUB
+
+FUNCTION layerHasEffects (layerID AS _INTEGER64)
+    IF UBOUND(imageEffects) < 1 THEN EXIT FUNCTION
+    i = 0: DO: i = i + 1
+        IF imageEffects(i).layerID = layerID THEN buffer = i
+    LOOP UNTIL i = UBOUND(imageEffects)
+    layerHasEffects = buffer
+END FUNCTION
 
 SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive AS _BYTE, layerID AS INTEGER, canvas AS rectangle)
     LINE (coord.x, coord.y)-(coord.x + coord.w, coord.y + coord.h), _RGBA(72, 144, 255, 255), B
@@ -1074,8 +1091,8 @@ SUB moveLayerCorner (layer AS layerInfo, corner AS _BYTE, layerID AS INTEGER, ca
     END IF
 END SUB
 
-SUB RectangleToPolar (Image AS LONG)
-    IF R < 0 OR R > 1 OR G < 0 OR G > 1 OR B < 0 OR B > 1 OR _PIXELSIZE(Image) <> 4 THEN EXIT SUB
+FUNCTION effect_RectangleToPolar& (Image AS LONG)
+    IF R < 0 OR R > 1 OR G < 0 OR G > 1 OR B < 0 OR B > 1 OR _PIXELSIZE(Image) <> 4 THEN EXIT FUNCTION
     DIM Buffer AS _MEM: Buffer = _MEMIMAGE(Image) 'Get a memory reference to our image
 
     maxx = _WIDTH(Image)
@@ -1117,20 +1134,16 @@ SUB RectangleToPolar (Image AS LONG)
             PSET (mx + (yfactor * SIN(xfactor)), my - (yfactor * COS(xfactor))), _RGBA(imgPoints(y, x, 2), imgPoints(y, x, 1), imgPoints(y, x, 0), imgPoints(y, x, 3))
         LOOP UNTIL x = maxx
     LOOP UNTIL y = maxy
-    _DEST Image
-    COLOR _RGBA(0, 0, 0, 255), _RGBA(0, 0, 0, 0)
-    CLS
-    _PUTIMAGE (0, 0)-(maxx, maxy), newImg, Image
-    _FREEIMAGE newImg
     ERASE imgPoints
     DIM imgPoints(0, 0, 0) AS _UNSIGNED _BYTE
     _DEST prevDest&
     'turn checking back on when done!
     $CHECKING:ON
     _MEMFREE Buffer
-END SUB
+    effect_RectangleToPolar& = newImg
+END FUNCTION
 
-SUB ProcessRGBImage (Image AS LONG, R AS SINGLE, G AS SINGLE, B AS SINGLE, A AS SINGLE)
+SUB effect_ProcessRGBImage (Image AS LONG, R AS SINGLE, G AS SINGLE, B AS SINGLE, A AS SINGLE)
     IF R < 0 OR R > 1 OR G < 0 OR G > 1 OR B < 0 OR B > 1 OR _PIXELSIZE(Image) <> 4 THEN EXIT SUB
     DIM Buffer AS _MEM: Buffer = _MEMIMAGE(Image) 'Get a memory reference to our image
 
@@ -1158,7 +1171,38 @@ SUB ProcessRGBImage (Image AS LONG, R AS SINGLE, G AS SINGLE, B AS SINGLE, A AS 
     _MEMFREE Buffer
 END SUB
 
-SUB ContrastImage (Image AS LONG, Contrast AS SINGLE)
+FUNCTION effect_Saturation& (Image AS LONG, Saturation AS SINGLE)
+    REDIM AS LONG newImg
+    newImg = _COPYIMAGE(Image, 32)
+    IF Saturation < 0 OR Saturation > 1 OR _PIXELSIZE(newImg) <> 4 THEN EXIT FUNCTION
+    DIM Buffer AS _MEM: Buffer = _MEMIMAGE(newImg) 'Get a memory reference to our image
+    Saturation = 1 - Saturation
+
+    DIM O AS _OFFSET, O_Last AS _OFFSET
+    O = Buffer.OFFSET 'We start at this offset
+    O_Last = Buffer.OFFSET + _WIDTH(newImg) * _HEIGHT(newImg) * 4 'We stop when we get to this offset
+    'use on error free code ONLY!
+    $CHECKING:OFF
+    DO
+        B = _MEMGET(Buffer, O, _UNSIGNED _BYTE)
+        G = _MEMGET(Buffer, O + 1, _UNSIGNED _BYTE)
+        R = _MEMGET(Buffer, O + 2, _UNSIGNED _BYTE)
+        lum = INT(0.299 * R + 0.587 * G + 0.114 * B)
+        B = B - (Saturation * (B - lum))
+        G = G - (Saturation * (G - lum))
+        R = R - (Saturation * (R - lum))
+        _MEMPUT Buffer, O, B AS _UNSIGNED _BYTE
+        _MEMPUT Buffer, O + 1, G AS _UNSIGNED _BYTE
+        _MEMPUT Buffer, O + 2, R AS _UNSIGNED _BYTE
+        O = O + 4
+    LOOP UNTIL O = O_Last
+    'turn checking back on when done!
+    $CHECKING:ON
+    _MEMFREE Buffer
+    effect_Saturation& = newImg
+END FUNCTION
+
+SUB effect_ContrastImage (Image AS LONG, Contrast AS SINGLE)
     IF Contrast < 0 OR Contrast > 1 OR _PIXELSIZE(Image) <> 4 THEN EXIT SUB
     DIM Buffer AS _MEM: Buffer = _MEMIMAGE(Image) 'Get a memory reference to our image
 
@@ -1403,11 +1447,45 @@ SUB doThis (arguments AS STRING, recursivecall AS _BYTE) 'program-specific actio
     END SELECT
 END SUB
 
+FUNCTION getLastLayerImage& (layerID)
+    layerEffectID = layerHasEffects(layerID)
+    IF layerEffectID > 0 THEN
+        getLastLayerImage& = imageEffects(layerEffectID).resultImg
+    ELSE
+        SELECT CASE _TRIM$(layerInfo(layerID).type)
+            CASE "image"
+                getLastLayerImage& = imageLayer(layerInfo(layerID).contentid).img
+            CASE "vector"
+                getLastLayerImage& = vectorPreview(layerInfo(layerID).contentid).image
+            CASE "text"
+                'getLayerImage& = imageLayer(layerInfo(layerID).contentid).img
+        END SELECT
+    END IF
+END FUNCTION
+
 SUB createEffect (layerID, effectName AS STRING)
+    REDIM AS LONG resultIMG
     SELECT CASE effectName
         CASE "toPolar"
-            'RectangleToPolar
+            resultIMG = effect_RectangleToPolar&(getLastLayerImage&(layerID))
+            addEffect layerID, 1, -1, resultIMG, 0, 0, 0, 0
+        CASE "monochrome"
+            resultIMG = effect_Saturation&(getLastLayerImage&(layerID), 0)
+            addEffect layerID, 1, -1, resultIMG, 0, 0, 0, 0
     END SELECT
+END SUB
+
+SUB addEffect (layerID, effectID AS _INTEGER64, isEnabled AS _BYTE, resultImg AS LONG, value1, value2, value3, value4)
+    REDIM _PRESERVE imageEffects(UBOUND(imageEffects) + 1) AS imageEffects
+    efID = UBOUND(imageEffects)
+    imageEffects(efID).layerID = layerID
+    imageEffects(efID).effectID = effectID
+    imageEffects(efID).isEnabled = isEnabled
+    imageEffects(efID).resultImg = resultImg
+    imageEffects(efID).value1 = value1
+    imageEffects(efID).value2 = value2
+    imageEffects(efID).value2 = value3
+    imageEffects(efID).value4 = value4
 END SUB
 
 SUB resetExpansions
