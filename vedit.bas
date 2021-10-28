@@ -421,6 +421,10 @@ END SUB
 SUB newFile (filePath AS STRING, fileName AS STRING, w AS INTEGER, h AS INTEGER, activeLayer AS INTEGER, xOff AS DOUBLE, yOff AS DOUBLE, zoom AS DOUBLE)
     'REDIM _PRESERVE file AS fileInfo
     REDIM _PRESERVE layerInfo(0) AS layerInfo
+    REDIM _PRESERVE imageLayer(0) AS imageLayer
+    REDIM _PRESERVE imageEffects(0) AS imageEffects
+    REDIM _PRESERVE vectorPoints(0, 0) AS vectorPoint
+    REDIM _PRESERVE vectorPreview(0) AS vectorPreview
 
     file.file = filePath
     file.name = fileName
@@ -1126,12 +1130,22 @@ FUNCTION effect_RectangleToPolar& (Image AS LONG)
     COLOR _RGBA(0, 0, 0, 255), _RGBA(0, 0, 0, 0)
     CLS
     scaley = (maxx / 2 / _PI)
+    dPi = 2 * _PI
     IF scaley > maxy THEN scaley = maxy / 2
+    pixel = 0
+    progresscolor = col&("ui")
     y = -1: DO: y = y + 1
         yfactor = ((y / (maxy))) * scaley
         x = -1: DO: x = x + 1
-            xfactor = 2 * _PI * (1 - (x / maxx))
+            xfactor = dPi * (1 - (x / maxx))
             PSET (mx + (yfactor * SIN(xfactor)), my - (yfactor * COS(xfactor))), _RGBA(imgPoints(y, x, 2), imgPoints(y, x, 1), imgPoints(y, x, 0), imgPoints(y, x, 3))
+            pixel = pixel + 1
+            IF pixel MOD 1000 = 0 THEN
+                _DEST 0
+                LINE (_WIDTH(0) * ((pixel - 1000) / maxp), 0)-(_WIDTH(0) * (pixel / maxp), 3), progresscolor, BF
+                _DISPLAY
+                _DEST newImg
+            END IF
         LOOP UNTIL x = maxx
     LOOP UNTIL y = maxy
     ERASE imgPoints
@@ -1171,74 +1185,66 @@ SUB effect_ProcessRGBImage (Image AS LONG, R AS SINGLE, G AS SINGLE, B AS SINGLE
     _MEMFREE Buffer
 END SUB
 
-FUNCTION effect_Saturation& (Image AS LONG, Saturation AS SINGLE)
-    REDIM AS LONG newImg
+FUNCTION effect_BoxBlur& (Image AS LONG, Radius AS _INTEGER64)
+    REDIM AS LONG newImg, progresscolor
+    REDIM AS _OFFSET yO, xyO
     newImg = _COPYIMAGE(Image, 32)
-    IF Saturation < 0 OR Saturation > 1 OR _PIXELSIZE(newImg) <> 4 THEN EXIT FUNCTION
-    DIM Buffer AS _MEM: Buffer = _MEMIMAGE(newImg) 'Get a memory reference to our image
-    Saturation = 1 - Saturation
-
-    DIM O AS _OFFSET, O_Last AS _OFFSET
+    smallestSide = min(_WIDTH(newImg), _HEIGHT(newImg))
+    IF Radius > smallestSide THEN Radius = smallestSide
+    IF Radius < 1 THEN Radius = 1
+    Diameter = INT(Radius * 2) + 1
+    IF _PIXELSIZE(newImg) <> 4 THEN EXIT FUNCTION
+    DIM Buffer AS _MEM: Buffer = _MEMIMAGE(Image) 'Get a memory reference to our image
+    DIM Buffer2 AS _MEM: Buffer2 = _MEMIMAGE(newImg) 'Get a memory reference to our new image
+    DIM AS _OFFSET O, O2, O_Last
     O = Buffer.OFFSET 'We start at this offset
     O_Last = Buffer.OFFSET + _WIDTH(newImg) * _HEIGHT(newImg) * 4 'We stop when we get to this offset
+    O2 = Buffer2.OFFSET
+    maxx = _WIDTH(newImg)
+    maxy = _HEIGHT(newImg)
+    divider = Diameter * Diameter
+    pixelcount = maxx * maxy
+    progresscolor = col&("ui")
+
     'use on error free code ONLY!
     $CHECKING:OFF
+    _DEST 0
+    pixel = 0
     DO
-        B = _MEMGET(Buffer, O, _UNSIGNED _BYTE)
-        G = _MEMGET(Buffer, O + 1, _UNSIGNED _BYTE)
-        R = _MEMGET(Buffer, O + 2, _UNSIGNED _BYTE)
-        lum = INT(0.299 * R + 0.587 * G + 0.114 * B)
-        B = B - (Saturation * (B - lum))
-        G = G - (Saturation * (G - lum))
-        R = R - (Saturation * (R - lum))
-        _MEMPUT Buffer, O, B AS _UNSIGNED _BYTE
-        _MEMPUT Buffer, O + 1, G AS _UNSIGNED _BYTE
-        _MEMPUT Buffer, O + 2, R AS _UNSIGNED _BYTE
-        O = O + 4
-    LOOP UNTIL O = O_Last
-    'turn checking back on when done!
-    $CHECKING:ON
-    _MEMFREE Buffer
-    effect_Saturation& = newImg
-END FUNCTION
-
-SUB effect_ContrastImage (Image AS LONG, Contrast AS SINGLE)
-    IF Contrast < 0 OR Contrast > 1 OR _PIXELSIZE(Image) <> 4 THEN EXIT SUB
-    DIM Buffer AS _MEM: Buffer = _MEMIMAGE(Image) 'Get a memory reference to our image
-
-    'Used to avoid slow floating point calculations
-    DIM AS LONG C_Frac
-    C_Frac = Contrast ' * 65536
-
-    DIM O AS _OFFSET, O_Last AS _OFFSET
-    O = Buffer.OFFSET 'We start at this offset
-    O_Last = Buffer.OFFSET + _WIDTH(Image) * _HEIGHT(Image) * 4 'We stop when we get to this offset
-    tresh = 123 ' * 65536
-    'use on error free code ONLY!
-    $CHECKING:OFF
-    DO
-        B = _MEMGET(Buffer, O, _UNSIGNED _BYTE)
-        G = _MEMGET(Buffer, O + 1, _UNSIGNED _BYTE)
-        R = _MEMGET(Buffer, O + 2, _UNSIGNED _BYTE)
-        'IF B + G + R < tresh * 3 AND NOT B > 200 AND NOT G > 200 AND NOT R > 200 THEN
-        IF B + G + R < tresh * 3 THEN
-            B = tresh - (B * C_Frac)
-            G = tresh - (G * C_Frac)
-            R = tresh - (R * C_Frac)
+        pixel = pixel + 1
+        y = _CEIL(pixel / maxx)
+        x = pixel - ((y - 1) * maxx)
+        IF x < Radius + 1 OR y < Radius + 1 OR x + Radius > maxx OR y + Radius > maxy THEN
         ELSE
-            B = tresh + ((255 - B) * C_Frac)
-            G = tresh + ((255 - G) * C_Frac)
-            R = tresh + ((255 - R) * C_Frac)
+            sumR = 0: sumG = 0: sumB = 0: sumA = 0
+            yi = -1: DO: yi = yi + 1
+                xi = -1: DO: xi = xi + 1
+                    yO = O - (4 * maxx * Radius) + (4 * maxx * yi)
+                    xyO = yO - (4 * Radius) + (4 * xi)
+                    sumA = sumA + _MEMGET(Buffer, xyO + 3, _UNSIGNED _BYTE)
+                    sumR = sumR + _MEMGET(Buffer, xyO + 2, _UNSIGNED _BYTE)
+                    sumG = sumG + _MEMGET(Buffer, xyO + 1, _UNSIGNED _BYTE)
+                    sumB = sumB + _MEMGET(Buffer, xyO, _UNSIGNED _BYTE)
+                LOOP UNTIL xi = Diameter - 1
+            LOOP UNTIL yi = Diameter - 1
+            _MEMPUT Buffer2, O2, INT(sumB / divider) AS _UNSIGNED _BYTE
+            _MEMPUT Buffer2, O2 + 1, INT(sumG / divider) AS _UNSIGNED _BYTE
+            _MEMPUT Buffer2, O2 + 2, INT(sumR / divider) AS _UNSIGNED _BYTE
+            _MEMPUT Buffer2, O2 + 3, INT(sumA / divider) AS _UNSIGNED _BYTE
         END IF
-        _MEMPUT Buffer, O, INT(B) AS _UNSIGNED _BYTE
-        _MEMPUT Buffer, O + 1, INT(G) AS _UNSIGNED _BYTE
-        _MEMPUT Buffer, O + 2, INT(R) AS _UNSIGNED _BYTE
+        IF pixel MOD 1000 = 0 THEN
+            LINE (_WIDTH(0) * ((pixel - 1000) / pixelcount), 0)-(_WIDTH(0) * (pixel / pixelcount), 3), progresscolor, BF
+            _DISPLAY
+        END IF
         O = O + 4
+        O2 = O2 + 4
     LOOP UNTIL O = O_Last
     'turn checking back on when done!
     $CHECKING:ON
     _MEMFREE Buffer
-END SUB
+    _MEMFREE Buffer2
+    effect_BoxBlur& = newImg
+END FUNCTION
 
 FUNCTION inRadius (boxX, boxY, pointX, pointY, radius)
     IF pointX > boxX - (radius / 2) AND pointY > boxY - (radius / 2) AND pointX < boxX + (radius / 2) AND pointY < boxY + (radius / 2) THEN
@@ -1469,9 +1475,15 @@ SUB createEffect (layerID, effectName AS STRING)
         CASE "toPolar"
             resultIMG = effect_RectangleToPolar&(getLastLayerImage&(layerID))
             addEffect layerID, 1, -1, resultIMG, 0, 0, 0, 0
-        CASE "monochrome"
-            resultIMG = effect_Saturation&(getLastLayerImage&(layerID), 0)
-            addEffect layerID, 1, -1, resultIMG, 0, 0, 0, 0
+        CASE "desaturate"
+            resultIMG = effect_Saturation&(getLastLayerImage&(layerID), 0.8)
+            addEffect layerID, 1, -1, resultIMG, 0.8, 0, 0, 0
+        CASE "contrast"
+            resultIMG = effect_Contrast&(getLastLayerImage&(layerID), 0.2)
+            addEffect layerID, 1, -1, resultIMG, 0.2, 0, 0, 0
+        CASE "boxBlur"
+            resultIMG = effect_BoxBlur&(getLastLayerImage&(layerID), 8)
+            addEffect layerID, 1, -1, resultIMG, 8, 0, 0, 0
     END SELECT
 END SUB
 
@@ -1500,6 +1512,7 @@ END SUB
 
 '--------------------------------------------------------------------------------------------------------------------------------------'
 
+'$INCLUDE: 'dependencies/effects.bm'
 '$INCLUDE: 'dependencies/VEvector.bm'
 '$INCLUDE: 'dependencies/gif.bm'
 '$INCLUDE: 'dependencies/saveimage.bm'

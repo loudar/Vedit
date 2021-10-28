@@ -1,0 +1,78 @@
+FUNCTION effect_Saturation& (Image AS LONG, Saturation AS SINGLE)
+    REDIM AS LONG newImg
+    newImg = _COPYIMAGE(Image, 32)
+    IF Saturation > 1 THEN Saturation = 1
+    IF Saturation < 0 THEN Saturation = 0
+    IF _PIXELSIZE(newImg) <> 4 THEN EXIT FUNCTION
+    DIM Buffer AS _MEM: Buffer = _MEMIMAGE(newImg) 'Get a memory reference to our image
+    Saturation = 1 - Saturation
+
+    DIM O AS _OFFSET, O_Last AS _OFFSET
+    O = Buffer.OFFSET 'We start at this offset
+    O_Last = Buffer.OFFSET + _WIDTH(newImg) * _HEIGHT(newImg) * 4 'We stop when we get to this offset
+    'use on error free code ONLY!
+    $CHECKING:OFF
+    DO
+        B = _MEMGET(Buffer, O, _UNSIGNED _BYTE)
+        G = _MEMGET(Buffer, O + 1, _UNSIGNED _BYTE)
+        R = _MEMGET(Buffer, O + 2, _UNSIGNED _BYTE)
+        lum = INT(0.299 * R + 0.587 * G + 0.114 * B)
+        B = B - (Saturation * (B - lum))
+        G = G - (Saturation * (G - lum))
+        R = R - (Saturation * (R - lum))
+        _MEMPUT Buffer, O, B AS _UNSIGNED _BYTE
+        _MEMPUT Buffer, O + 1, G AS _UNSIGNED _BYTE
+        _MEMPUT Buffer, O + 2, R AS _UNSIGNED _BYTE
+        O = O + 4
+    LOOP UNTIL O = O_Last
+    'turn checking back on when done!
+    $CHECKING:ON
+    _MEMFREE Buffer
+    effect_Saturation& = newImg
+END FUNCTION
+
+FUNCTION effect_Contrast& (Image AS LONG, Contrast AS SINGLE)
+    REDIM AS LONG newImg
+    newImg = _COPYIMAGE(Image, 32)
+    IF Contrast > 1 THEN Contrast = 1
+    IF Contrast < 0 THEN Contrast = 0
+    IF _PIXELSIZE(newImg) <> 4 THEN EXIT FUNCTION
+    DIM Buffer AS _MEM: Buffer = _MEMIMAGE(newImg) 'Get a memory reference to our image
+
+    DIM O AS _OFFSET, O_Last AS _OFFSET
+    O = Buffer.OFFSET 'We start at this offset
+    O_Last = Buffer.OFFSET + _WIDTH(newImg) * _HEIGHT(newImg) * 4 'We stop when we get to this offset
+    tresh = 127 ' * 65536
+    'use on error free code ONLY!
+    $CHECKING:OFF
+    DO
+        B = _MEMGET(Buffer, O, _UNSIGNED _BYTE)
+        G = _MEMGET(Buffer, O + 1, _UNSIGNED _BYTE)
+        R = _MEMGET(Buffer, O + 2, _UNSIGNED _BYTE)
+        'lum = INT(0.299 * R + 0.587 * G + 0.114 * B)
+        'newLum = INT(lum + (((lum - tresh) / tresh) * contrastFactor))
+        'lumDif = newLum - lum
+        'B = B + (lumDif * 0.114)
+        'G = G + (lumDif * 0.587)
+        'R = R + (lumDif * 0.299)
+        'IF B + G + R < tresh * 3 AND NOT B > 200 AND NOT G > 200 AND NOT R > 200 THEN
+        IF INT(0.299 * R + 0.587 * G + 0.114 * B) < tresh THEN
+            B = INT(B - (B * Contrast))
+            G = INT(G - (G * Contrast))
+            R = INT(R - (R * Contrast))
+        ELSE
+            B = INT(B + ((255 - B) * Contrast))
+            G = INT(G + ((255 - G) * Contrast))
+            R = INT(R + ((255 - R) * Contrast))
+        END IF
+        _MEMPUT Buffer, O, B AS _UNSIGNED _BYTE
+        _MEMPUT Buffer, O + 1, G AS _UNSIGNED _BYTE
+        _MEMPUT Buffer, O + 2, R AS _UNSIGNED _BYTE
+        O = O + 4
+    LOOP UNTIL O = O_Last
+    'turn checking back on when done!
+    $CHECKING:ON
+    _MEMFREE Buffer
+    effect_Contrast& = newImg
+END FUNCTION
+

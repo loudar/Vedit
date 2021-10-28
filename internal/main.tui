@@ -1,5 +1,5 @@
 type=menu;x=margin;y=margin;w=flex;h=25;color=ui;hovercolor=ui;name=filemenu;hovertext=Opens file menu;options=action.save.file/action.new.file/action.open.file/action.quit;text=File
-type=menu;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui;name=effectmenu;hovertext=Add an effect to the current layer;options=action.effect.toPolar/action.effect.monochrome;text=Add effect
+type=menu;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui;name=effectmenu;hovertext=Add an effect to the current layer;options=action.effect.toPolar/action.effect.desaturate/action.effect.contrast/action.effect.boxBlur;text=Add effect
 type=text;x=prev;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;name=file.file;text=;hovertext=Currently open file
 type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.x;text=X;hovertext=Current layer horizontal position
 type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.y;text=Y;hovertext=Current layer vertical position
