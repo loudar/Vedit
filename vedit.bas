@@ -891,10 +891,12 @@ SUB displayLayerOutline (coord AS rectangle, layer AS layerInfo, layerIsActive A
 
         ' moving image
         IF NOT mouse.left THEN IF NOT blockMove AND currentImage.corner = 5 THEN resetCurrentImage
-        REDIM mcoord AS rectangle
-        mcoord.x = mouse.x - canvas.x
-        mcoord.y = mouse.y - canvas.y
-        IF inBounds(mcoord, coord) THEN glutSetCursor GLUT_CURSOR_CYCLE ELSE IF NOT blockCursor THEN _MOUSESHOW "DEFAULT"
+        REDIM AS rectangle mcoord, mcoord2
+        mcoord.x = mouse.x
+        mcoord.y = mouse.y
+        mcoord2.x = mouse.x - canvas.x
+        mcoord2.y = mouse.y - canvas.y
+        IF inBounds(mcoord, canvas) AND inBounds(mcoord2, coord) THEN glutSetCursor GLUT_CURSOR_CYCLE ELSE IF NOT blockCursor THEN _MOUSESHOW "DEFAULT"
         IF layerIsActive AND (inBounds(mcoord, coord) AND mouse.left) OR (mouse.left AND (currentImage.corner = 5)) AND NOT blockMove THEN
             moveLayerCorner layer, 5, layerID, canvas
         END IF
