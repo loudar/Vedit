@@ -1,4 +1,5 @@
 type=menu;x=margin;y=margin;w=flex;h=25;color=ui;hovercolor=ui;name=filemenu;hovertext=Opens file menu;options=action.save.file/action.new.file/action.open.file/action.quit;text=File
+type=menu;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui;name=effectmenu;hovertext=Add an effect to the current layer;options=action.effect.toPolar/action.effect.monochrome;text=Add effect
 type=text;x=prev;y=prevb;w=flex;h=25;color=ui;hovercolor=ui2;name=file.file;text=;hovertext=Currently open file
 type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.x;text=X;hovertext=Current layer horizontal position
 type=text;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;name=layer.y;text=Y;hovertext=Current layer vertical position
@@ -9,6 +10,7 @@ type=checkbox;x=prevr;y=prev;w=flex;h=25;color=ui;hovercolor=ui2;text=Snap to gr
 /type=list;x=left;y=prevb;w=0.25/m4;h=(canvas);color=ui;hovercolor=ui2;name=toollist;style=b;angle=0;text=Tools;content=tools;hovertext=A list of all tools available
 type=tool;x=left;y=prevb;w=40;h=40;color=ui;hovercolor=ui2;name=move;style=b;angle=0;text=Move;hovertext=Switches to the move tool;content=\cursors\Move_2.png;action=tool.move
 type=tool;x=left;y=prevb;w=40;h=40;color=ui;hovercolor=ui2;name=paint;style=b;angle=0;text=Paint;hovertext=Switches to the paint tool;content=\cursors\Handwriting.png;action=tool.paint
+type=tool;x=left;y=prevb;w=40;h=40;color=ui;hovercolor=ui2;name=text;style=b;angle=0;text=Text;hovertext=Switches to the text tool;content=\cursors\Text-Select.png;action=tool.text
 type=canvas;x=prevr;y=(move);w=span;h=(layerlist);color=ui;hovercolor=ui;name=canvas;angle=0;style=bf
 type=list;x=right;y=(canvas);w=1/4;h=nextt;color=ui;hovercolor=ui2;name=layerlist;style=b;angle=0;text=Layers;content=layers;hovertext=A list of all layers in the current file;state=0;scroll=0
 type=button;x=right;y=bottom;w=flex;h=25;color=ui;hovercolor=ui2;name=quit;style=b;angle=0;text=Quit;action=quit

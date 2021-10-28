@@ -32,6 +32,10 @@ SUB drawShape (arguments AS STRING, clr AS LONG)
                 LINE (x + (cursorsize / 2) + rt, y - (cursorsize / 2))-(x - (cursorsize / 2) + rt, y + (cursorsize / 2)), clr
             LOOP UNTIL t = thickness * 2
         CASE "triangle"
+            LINE (x, y)-(x + w, y), clr
+            LINE (x, y)-(x + (w / 2), y + h), clr
+            LINE (x + (w / 2), y + h)-(x + w, y), clr
+            PAINT (x + (w / 2), y + (h / 2)), clr, clr
     END SELECT
 END SUB
 
@@ -319,7 +323,10 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
             COLOR this.drawcolor, col&("t")
             _PRINTSTRING (coord.x + boxsize + global.margin, coord.y), this.text + " " + switchWord$(this.switchword, this.state)
         CASE "dropdown"
-            IF NOT this.expand THEN rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=0;round=" + this.round, this.drawcolor
+            IF NOT this.expand THEN
+                rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(coord.h) + ";style=" + this.style + ";angle=0;round=" + this.round, this.drawcolor
+            END IF
+            drawShape "shape=triangle;x=" + LST$(coord.x + coord.w - global.padding - _FONTWIDTH(currentfont)) + ";y=" + LST$(coord.y + global.padding + (_FONTWIDTH(currentfont) / 4)) + ";w=" + LST$(_FONTWIDTH(currentfont)) + ";h=" + LST$(_FONTWIDTH(currentfont) / 2), col&("ui")
             coord.x = coord.x + (2 * global.padding)
             coord.y = coord.y + global.padding
             IF LCASE$(this.style) = "bf" THEN
@@ -371,7 +378,15 @@ SUB drawElement (this AS element, elementindex AS INTEGER, coord AS rectangle, i
             IF _FILEEXISTS(file$) THEN
                 img = _LOADIMAGE(file$, 32)
                 dist = global.padding
-                _PUTIMAGE (coord.x + dist, coord.y + dist)-(coord.x + ((_WIDTH(img) / _HEIGHT(img)) * (coord.h - dist)), coord.y + (coord.h - dist)), img
+                IF _WIDTH(img) < _HEIGHT(img) THEN
+                    yMargin = global.padding
+                    xMargin = (coord.w - (((coord.h - (2 * yMargin)) / _HEIGHT(img)) * _WIDTH(img))) / 2
+                ELSE
+                    xMargin = global.padding
+                    yMargin = (coord.h - (((coord.w - (2 * xMargin)) / _WIDTH(img)) * _HEIGHT(img))) / 2
+                END IF
+                '_PUTIMAGE (coord.x + xMargin, coord.y + yMargin)-(coord.x + ((_WIDTH(img) / _HEIGHT(img)) * (coord.h - dist)), coord.y + (coord.h - dist)), img
+                _PUTIMAGE (coord.x + xMargin, coord.y + yMargin)-(coord.x + coord.w - xMargin, coord.y + coord.h - yMargin), img
                 _FREEIMAGE img
             END IF
         CASE "layerListItem"

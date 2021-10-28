@@ -255,10 +255,13 @@ SUB expandElement (this AS element, elementindex AS INTEGER, currentfont AS LONG
         itemcoord.y = coord.y + (lineheight * index) + optionspadding
         itemtext$ = _TRIM$(options(index))
         IF mouseInBounds(itemcoord) THEN
-            IF MID$(itemtext$, 1, INSTR(itemtext$, ".") - 1) = "action" AND mouse.left THEN
-                doThis "action="+MID$(itemtext$, INSTR(itemtext$, ".") + 1, LEN(itemtext$)), 0
-            ELSEIF mouse.left THEN
-                setGlobal this.name, options(index): lockmouse = -1
+            IF mouse.left THEN
+                SELECT CASE MID$(itemtext$, 1, INSTR(itemtext$, ".") - 1)
+                    CASE "action"
+                        doThis "action="+MID$(itemtext$, INSTR(itemtext$, ".") + 1, LEN(itemtext$)), 0
+                    CASE ELSE
+                        setGlobal this.name, options(index): lockmouse = -1
+                END SELECT
             END IF
             COLOR col&("seltext"), col&("t")
             LINE (itemcoord.x + 1, itemcoord.y + 1)-(itemcoord.x + itemcoord.w - 1, itemcoord.y + itemcoord.h - 1), col&("bg2"), BF
@@ -1212,19 +1215,23 @@ FUNCTION getEWidth$ (e AS INTEGER, currentfont AS LONG)
     IF elements(e).w = "flex" OR elements(e).w = "f" THEN 'you would normally want this one for text-based elements
         IF elements(e).type = "slider" THEN
             getEWidth$ = LST$(VAL(elements(e).w) + (_FONTWIDTH(currentfont) * (LEN(elements(e).text) + 1 + SGN(LEN(elements(e).buffer)) + LEN(elements(e).buffer))) + 1 + (2 * global.padding) + global.margin + global.sliderwidth)
-        ELSEIF elements(e).type = "dropdown" AND elements(e).expand THEN
-            DIM options(0) AS STRING
-            getOptionsArray options(), elements(e)
-            optionspadding = 6
-            DO: index = index + 1
-                IF LEN(options(index)) > maxLEN THEN maxLEN = LEN(options(index))
-            LOOP UNTIL index = UBOUND(options)
-            maxWidth = maxLEN * _FONTWIDTH(currentfont) + (2 * optionspadding)
-            standardValue$ = LST$(VAL(elements(e).w) + (_FONTWIDTH(currentfont) * (LEN(elements(e).text) + 1 + SGN(LEN(elements(e).buffer)) + LEN(elements(e).buffer))) + 1 + (2 * global.padding))
-            IF maxWidth > VAL(standardValue$) THEN
-                getEWidth$ = LST$(maxWidth)
+        ELSEIF elements(e).type = "dropdown" THEN
+            IF elements(e).expand THEN
+                DIM options(0) AS STRING
+                getOptionsArray options(), elements(e)
+                optionspadding = 6
+                DO: index = index + 1
+                    IF LEN(options(index)) > maxLEN THEN maxLEN = LEN(options(index))
+                LOOP UNTIL index = UBOUND(options)
+                maxWidth = maxLEN * _FONTWIDTH(currentfont) + (2 * optionspadding)
+                standardValue$ = LST$(VAL(elements(e).w) + (_FONTWIDTH(currentfont) * (LEN(elements(e).text) + 2 + SGN(LEN(elements(e).buffer)) + LEN(elements(e).buffer))) + 1 + (2 * global.padding))
+                IF maxWidth > VAL(standardValue$) THEN
+                    getEWidth$ = LST$(maxWidth)
+                ELSE
+                    getEWidth$ = standardValue$
+                END IF
             ELSE
-                getEWidth$ = standardValue$
+                getEWidth$ = LST$(VAL(elements(e).w) + (_FONTWIDTH(currentfont) * (LEN(elements(e).text) + 2 + SGN(LEN(elements(e).buffer)) + LEN(elements(e).buffer))) + 1 + (2 * global.padding))
             END IF
         ELSE
             getEWidth$ = LST$(VAL(elements(e).w) + (_FONTWIDTH(currentfont) * (LEN(elements(e).text) + 1 + SGN(LEN(elements(e).buffer)) + LEN(elements(e).buffer))) + 1 + (2 * global.padding))

@@ -53,6 +53,7 @@ TYPE imageEffects
     AS LONG resultImg
     AS DOUBLE value1, value2, value3, value4
 END TYPE
+REDIM SHARED imageEffects(0) AS imageEffects
 TYPE currentImage
     AS INTEGER xOff, yOff, ID, corner
     AS rectangle coord
@@ -548,6 +549,7 @@ SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS
             END IF
             imageLayer(ID).w = w
             imageLayer(ID).h = h
+            RectangleToPolar imageLayer(ID).img
             'ProcessRGBImage imageLayer(ID).img, 1, 0, 0, 1
         CASE "text"
             ' create a UM element, then check for moving in displayLayers
@@ -1107,9 +1109,10 @@ SUB RectangleToPolar (Image AS LONG)
     scaley = (maxx / 2 / _PI)
     IF scaley > maxy THEN scaley = maxy / 2
     y = -1: DO: y = y + 1
-        yfactor = (1 - (y / (maxy))) * scaley
+        yfactor = ((y / (maxy))) * scaley
         x = -1: DO: x = x + 1
-            PSET (mx - (yfactor * SIN(2 * _PI * (1 - (x / maxx)))), my - (yfactor * COS(2 * _PI * (1 - (x / maxx))))), _RGBA(imgPoints(y, x, 2), imgPoints(y, x, 1), imgPoints(y, x, 0), imgPoints(y, x, 3))
+            xfactor = 2 * _PI * (1 - (x / maxx))
+            PSET (mx + (yfactor * SIN(xfactor)), my - (yfactor * COS(xfactor))), _RGBA(imgPoints(y, x, 2), imgPoints(y, x, 1), imgPoints(y, x, 0), imgPoints(y, x, 3))
         LOOP UNTIL x = maxx
     LOOP UNTIL y = maxy
     _DEST Image
@@ -1378,6 +1381,8 @@ SUB doThis (arguments AS STRING, recursivecall AS _BYTE) 'program-specific actio
             SYSTEM
     END SELECT
     SELECT CASE MID$(action$, 1, INSTR(action$, ".") - 1)
+        CASE "effect"
+            createEffect file.activeLayer, MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
         CASE "subview"
             newview = MID$(action$, INSTR(action$, ".") + 1, LEN(action$))
             subview = newview
@@ -1396,6 +1401,13 @@ SUB doThis (arguments AS STRING, recursivecall AS _BYTE) 'program-specific actio
     END SELECT
 END SUB
 
+SUB createEffect (layerID, effectName AS STRING)
+    SELECT CASE effectName
+        CASE "toPolar"
+            'RectangleToPolar
+    END SELECT
+END SUB
+
 SUB resetExpansions
     IF UBOUND(elements) > 0 THEN
         DO: e = e + 1
@@ -1405,7 +1417,6 @@ SUB resetExpansions
         LOOP UNTIL e = UBOUND(elements)
     END IF
 END SUB
-
 
 '--------------------------------------------------------------------------------------------------------------------------------------'
 
