@@ -229,24 +229,28 @@ SUB displayHoverText (this AS element)
 END SUB
 
 SUB expandElement (this AS element, elementindex AS INTEGER, currentfont AS LONG)
-    DIM AS rectangle coord, itemcoord
+    DIM AS rectangle coord, ocoord, itemcoord
     getCoord coord, elementindex, currentfont
+    getCoord ocoord, elementindex, currentfont
     DIM options(0) AS STRING
     getOptionsArray options(), this
 
     IF UBOUND(options) = 0 THEN EXIT SUB
 
     originalheight = coord.h
-    optionspadding = 6
+    optionspadding = global.padding
     lineheight = _FONTHEIGHT(font_normal) + optionspadding
     coord.h = originalheight + (lineheight * (UBOUND(options))) + optionspadding
     DO: index = index + 1
-        IF LEN(options(index)) > maxLEN THEN maxLEN = LEN(options(index))
+        IF LEN(_TRIM$(options(index))) > maxLEN THEN maxLEN = LEN(_TRIM$(options(index)))
     LOOP UNTIL index = UBOUND(options)
     maxWidth = maxLEN * _FONTWIDTH(currentfont) + (2 * optionspadding)
     IF maxWidth > coord.w THEN coord.w = maxWidth
-    LINE (coord.x, coord.y + lineheight + (2 * global.padding))-(coord.x + coord.w, coord.y + coord.h), col&("bg1"), BF
+    LINE (coord.x, coord.y )-(coord.x + coord.w, coord.y + coord.h), col&("bg1"), BF
     rectangle "x=" + LST$(coord.x) + ";y=" + LST$(coord.y) + ";w=" + LST$(coord.w) + ";h=" + LST$(originalheight) + ";style=" + this.style + ";angle=" + this.angle + ";round=" + this.round, this.drawcolor
+    ocoord.x = ocoord.x + (2 * global.padding)
+    ocoord.y = ocoord.y + global.padding
+    drawElementText ocoord, this, currentfont
     maxWidth = maxLEN * _FONTWIDTH(currentfont) + (2 * optionspadding)
     itemcoord.w = coord.w
     itemcoord.x = coord.x
@@ -286,6 +290,10 @@ FUNCTION functionText$ (functionName$)
             functionText$ = "New file"
         CASE "open.file"
             functionText$ = "Open file"
+        CASE "effect.toPolar"
+            functionText$ = "Rectangle to Polar"
+        CASE "effect.monochrome"
+            functionText$ = "Monochrome"
         CASE "quit"
             functionText$ = "Quit"
         CASE ELSE

@@ -133,6 +133,7 @@ SUB elementKeyHandling (this AS element, elementindex AS INTEGER, bufferchar AS 
     IF this.cursor > LEN(this.buffer) THEN this.cursor = LEN(this.buffer)
     IF this.sel_start > LEN(this.buffer) THEN this.sel_start = LEN(this.buffer)
     IF this.sel_end > LEN(this.buffer) THEN this.sel_end = LEN(this.buffer)
+    IF invoke.exit AND this.expand THEN this.expand = 0: expanded = 0: activeelement = 0
 
     IF active(elementindex) = 0 THEN EXIT SUB
 
@@ -427,7 +428,7 @@ SUB displayElement (elementindex AS INTEGER, keyhit AS INTEGER) 'parses abstract
                 doThis buffer$ + getCurrentInputValues$(-1), 0
             END IF
         CASE 27
-            doThis "action=view.start;" + getCurrentInputValues$(0), 0
+            invoke.exit = -1 'ELSE doThis "action=view.start;" + getCurrentInputValues$(0), 0
         CASE 21248: invoke.delete = -1 'delete
         CASE 19200: invoke.left = -1 'left arrow
         CASE 19712: invoke.right = -1 'right arrow
