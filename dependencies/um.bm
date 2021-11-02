@@ -31,7 +31,7 @@ SUB checkMouse
         mouse.scroll = mouse.scroll + _MOUSEWHEEL
 
         mouse.left = _MOUSEBUTTON(1)
-        IF mouse.left THEN
+        IF mouse.left AND NOT invoke.ignoremouse THEN
             mouse.lefttimedif2 = mouse.lefttimedif
             mouse.lefttimedif = TIMER - mouse.lefttime: mouse.lefttime = TIMER
             IF mouse.leftrelease THEN
@@ -44,7 +44,7 @@ SUB checkMouse
         END IF
 
         mouse.right = _MOUSEBUTTON(2)
-        IF mouse.right THEN
+        IF mouse.right AND NOT invoke.ignoremouse THEN
             IF mouse.rightrelease THEN
                 mouse.rightrelease = 0
                 mouse.righttimedif = TIMER - mouse.righttime: mouse.righttime = TIMER
@@ -54,7 +54,7 @@ SUB checkMouse
         END IF
 
         mouse.middle = _MOUSEBUTTON(3)
-        IF mouse.middle THEN
+        IF mouse.middle AND NOT invoke.ignoremouse THEN
             IF mouse.middlerelease THEN
                 mouse.middlerelease = 0
                 mouse.middletimedif = TIMER - mouse.middletime: mouse.middletime = TIMER
@@ -71,6 +71,7 @@ SUB checkMouse
         mouse.noMovement = 0
     END IF
     IF mouse.left OR mouse.right OR mouse.middle THEN mouse.noMovement = 0
+    invoke.ignoremouse = 0
 END SUB
 
 FUNCTION checkKeyboard

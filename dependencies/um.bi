@@ -62,7 +62,7 @@ REDIM SHARED elements(0) AS element
 
 REDIM SHARED AS STRING viewname(0), currentview, previousview, transmittedtext, subview
 TYPE invoke
-    AS _BYTE delete, back, select, right, left, deselect, jumptoend, jumptofront, exit
+    AS _BYTE delete, back, select, right, left, deselect, jumptoend, jumptofront, exit, ignoremouse
 END TYPE
 REDIM SHARED AS LONG font_normal, font_big
 REDIM SHARED AS INTEGER elementlock, activeelement

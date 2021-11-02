@@ -156,17 +156,25 @@ SUB adjustZoom (coord AS rectangle)
 END SUB
 
 SUB saveFileDialog
-    filter$ = "BMP (*.bmp)|*.bmp|GIF (*.gif)|*.gif|JPG (*.jpg)|*.jpg|PNG (*.png)|*.png|VFI (*.vfi)|*.vfi" + CHR$(0)
+    filter$ = "VFI (*.vfi)|*.vfi|BMP (*.bmp)|*.bmp|GIF (*.gif)|*.gif|JPG (*.jpg)|*.jpg|PNG (*.png)|*.png" + CHR$(0)
     flags& = OFN_OVERWRITEPROMPT + OFN_NOCHANGEDIR + SAVE_DIALOG '   add flag constants here
     targetfile$ = ComDlgFileName("Vedit - Save File", ".\", filter$, 3, flags&)
     saveFile targetfile$
+    CLS
+    PRINT "Saving file..."
+    _DISPLAY
+    invoke.ignoremouse = 0
 END SUB
 
 SUB openFileDialog
-    filter$ = "VFI (*.vfi)|*.VFI" + CHR$(0)
+    filter$ = "Vedit Files (*.vfi)|*.vfi|Image Files (*.BMP;*.JPG;*.GIF;*.PNG)|*.BMP;*.JPG;*.GIF;*.PNG" + CHR$(0)
     flags& = OFN_FILEMUSTEXIST + OFN_NOCHANGEDIR + OFN_READONLY '    add flag constants here
     sourcefile$ = ComDlgFileName("Vedit - Open File", ".\", filter$, 1, flags&)
+    CLS
+    PRINT "Loading file..."
+    _DISPLAY
     openFile sourcefile$
+    invoke.ignoremouse = 0
 END SUB
 
 SUB saveFile (targetFile AS STRING)
@@ -457,6 +465,7 @@ SUB openFile (sourceFile AS STRING)
                 h = _HEIGHT(bufImg)
                 _FREEIMAGE bufImg
                 newFile sourceFile, name$, w, h, 1, 0, 0, 1
+                addFileAsLayer sourceFile
             END IF
         CASE ".jpg"
             namestart = _INSTRREV(sourceFile, "\")
@@ -468,6 +477,31 @@ SUB openFile (sourceFile AS STRING)
                 h = _HEIGHT(bufImg)
                 _FREEIMAGE bufImg
                 newFile sourceFile, name$, w, h, 1, 0, 0, 1
+                addFileAsLayer sourceFile
+            END IF
+        CASE ".bmp"
+            namestart = _INSTRREV(sourceFile, "\")
+            nameend = _INSTRREV(sourceFile, ".")
+            name$ = MID$(sourceFile, namestart + 1, nameend - namestart - 1)
+            bufImg = _LOADIMAGE(sourceFile, 32)
+            IF bufImg < -1 THEN
+                w = _WIDTH(bufImg)
+                h = _HEIGHT(bufImg)
+                _FREEIMAGE bufImg
+                newFile sourceFile, name$, w, h, 1, 0, 0, 1
+                addFileAsLayer sourceFile
+            END IF
+        CASE ".gif" ' add a gif handler, add a different work mode for animations
+            namestart = _INSTRREV(sourceFile, "\")
+            nameend = _INSTRREV(sourceFile, ".")
+            name$ = MID$(sourceFile, namestart + 1, nameend - namestart - 1)
+            bufImg = _LOADIMAGE(sourceFile, 32)
+            IF bufImg < -1 THEN
+                w = _WIDTH(bufImg)
+                h = _HEIGHT(bufImg)
+                _FREEIMAGE bufImg
+                newFile sourceFile, name$, w, h, 1, 0, 0, 1
+                addFileAsLayer sourceFile
             END IF
     END SELECT
     currentview = "main"
@@ -489,39 +523,47 @@ SUB fileDropCheck
             END IF
             SELECT CASE droptype$
                 CASE "file"
-                    IF MID$(df$, LEN(df$) - 3, 4) = ".png" OR MID$(df$, LEN(df$) - 3, 4) = ".jpg" THEN
-                        img = _LOADIMAGE(df$, 32)
-                        ar = _WIDTH(img) / _HEIGHT(img)
-                        filear = file.w / file.h
-                        IF ar = filear THEN
-                            w = file.w
-                            h = file.h
-                            x = 0
-                            y = 0
-                        ELSEIF ar > filear THEN 'if new layer is wider than artboard
-                            w = file.w
-                            h = w / ar
-                            x = 0
-                            y = (file.h - h) / 2
-                        ELSEIF ar < filear THEN 'if new layer is taller than artboard
-                            h = file.h
-                            w = h * ar
-                            x = (file.w - w) / 2
-                            y = 0
-                        END IF
-                        'END IF
-                        p = 0: DO: p = p + 1
-                        LOOP UNTIL p = LEN(df$) OR MID$(df$, LEN(df$) + 1 - p, 1) = "\"
-                        n = LEN(df$) - p + 2
-                        nl = LEN(df$) - n - 3
-                        createLayer MID$(df$, n, nl), x, y, w, h, "image", UBOUND(imageLayer) + 1, df$
-                        _FREEIMAGE img
-                    END IF
+                    addFileAsLayer df$
             END SELECT
         LOOP UNTIL _TOTALDROPPEDFILES = 0
         _FINISHDROP
     END IF
 END SUB
+
+SUB addFileAsLayer (filename AS STRING)
+    extension$ = MID$(filename, LEN(filename) - 3, 4)
+    IF extension$ = ".png" OR extension$ = ".jpg" OR extension$ = ".bmp" OR extension$ = ".gif" THEN
+        img = _LOADIMAGE(filename, 32)
+        ar = _WIDTH(img) / _HEIGHT(img)
+        filear = file.w / file.h
+        IF ar = filear THEN
+            w = file.w
+            h = file.h
+            x = 0
+            y = 0
+        ELSEIF ar > filear THEN 'if new layer is wider than artboard
+            w = file.w
+            h = w / ar
+            x = 0
+            y = (file.h - h) / 2
+        ELSEIF ar < filear THEN 'if new layer is taller than artboard
+            h = file.h
+            w = h * ar
+            x = (file.w - w) / 2
+            y = 0
+        END IF
+        createLayer getFileBaseName$(filename), x, y, w, h, "image", UBOUND(imageLayer) + 1, filename
+        _FREEIMAGE img
+    END IF
+END SUB
+
+FUNCTION getFileBaseName$ (filename AS STRING)
+    p = 0: DO: p = p + 1
+    LOOP UNTIL p = LEN(filename) OR MID$(filename, LEN(filename) + 1 - p, 1) = "\"
+    n = LEN(filename) - p + 2
+    nl = LEN(filename) - n - 3
+    getFileBaseName$ = MID$(filename, n, nl)
+END FUNCTION
 
 SUB createLayer (layname AS STRING, x AS DOUBLE, y AS DOUBLE, w AS INTEGER, h AS INTEGER, layerType AS STRING, contentid AS INTEGER, sourceFile AS STRING)
     REDIM _PRESERVE layerInfo(UBOUND(layerInfo) + 1) AS layerInfo
@@ -620,11 +662,10 @@ SUB makeExportIMG (w AS _INTEGER64, h AS _INTEGER64, IMG AS LONG)
         layer = 0: DO: layer = layer + 1
             SELECT CASE layerInfo(layer).type
                 CASE "vector"
-                    IF layerInfo(layer).enabled THEN displayLines layerInfo(layer), layerIsActive, coord, IMG
+                    IF layerInfo(layer).enabled THEN displayLines layerInfo(layer), layerIsActive, coord, IMG, -1
                 CASE "image"
-                    IF layerInfo(layer).enabled THEN displayImageLayer layerInfo(layer), layerIsActive, layer, coord
+                    IF layerInfo(layer).enabled THEN displayImageLayer layerInfo(layer), layerIsActive, layer, coord, -1
                 CASE "text"
-
             END SELECT
         LOOP UNTIL layer >= UBOUND(layerInfo)
     END IF
@@ -648,13 +689,13 @@ SUB displayLayers (coord AS rectangle)
                 SELECT CASE layerInfo(layer).type
                     CASE "vector"
                         IF layerInfo(layer).enabled THEN
-                            displayLines layerInfo(layer), layerIsActive, coord, canvasImg
+                            displayLines layerInfo(layer), layerIsActive, coord, canvasImg, 0
                             IF layerIsActive AND file.activeTool = "move" THEN
                                 displayPoints layerInfo(layer), coord
                             END IF
                         END IF
                     CASE "image"
-                        IF layerInfo(layer).enabled THEN displayImageLayer layerInfo(layer), layerIsActive, layer, coord
+                        IF layerInfo(layer).enabled THEN displayImageLayer layerInfo(layer), layerIsActive, layer, coord, 0
                     CASE "text"
                         IF layerInfo(layer).enabled THEN displayTextLayer layerInfo(layer), layerIsActive, layer, coord
                 END SELECT
@@ -800,13 +841,20 @@ SUB displayTextLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS INT
 
 END SUB
 
-SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS INTEGER, canvas AS rectangle)
+SUB displayImageLayer (layer AS layerInfo, layerIsActive AS _BYTE, layerID AS INTEGER, canvas AS rectangle, forExport AS _BYTE)
     contentid = layer.contentid
     REDIM layerCoord AS rectangle
-    layerCoord.x = (layer.x * file.zoom) + file.xOffset
-    layerCoord.y = (layer.y * file.zoom) + file.yOffset
-    layerCoord.w = (layer.w * file.zoom)
-    layerCoord.h = (layer.h * file.zoom)
+    IF forExport THEN
+        layerCoord.x = layer.x
+        layerCoord.y = layer.y
+        layerCoord.w = layer.w
+        layerCoord.h = layer.h
+    ELSE
+        layerCoord.x = (layer.x * file.zoom) + file.xOffset
+        layerCoord.y = (layer.y * file.zoom) + file.yOffset
+        layerCoord.w = (layer.w * file.zoom)
+        layerCoord.h = (layer.h * file.zoom)
+    END IF
     IF imageLayer(contentid).img < -1 AND layer.w > 0 AND layer.h > 0 THEN
         layerEffectID = layerHasEffects(layerID)
         IF layerEffectID > 0 THEN
