@@ -140,16 +140,34 @@ SUB adjustZoom (coord AS rectangle)
                 IF altDown THEN
                     file.xOffset = file.xOffset - (((file.w * file.zoom) - ((mouse.x - coord.x) - (file.xOffset - (file.w * file.zoom)))) * (-0.1))
                     file.yOffset = file.yOffset - (((file.h * file.zoom) - ((mouse.y - coord.y) - (file.yOffset - (file.h * file.zoom)))) * (-0.1))
+                    file.zoom = file.zoom * 1.1
+                ELSEIF ctrlDown THEN
+                    file.zoom = file.zoom * 1.1
                 END IF
-                file.zoom = file.zoom * 1.1
+            END IF
+            IF shiftDown THEN
+                file.xOffset = file.xOffset + (file.zoom * file.w * 0.05 * (1 / file.zoom))
+            ELSE
+                IF NOT altDown AND NOT ctrlDown THEN
+                    file.yOffset = file.yOffset + (file.zoom * file.h * 0.05 * (1 / file.zoom))
+                END IF
             END IF
         ELSEIF mouse.scroll > 0 THEN
             IF file.zoom > 0.001 THEN
                 IF altDown THEN
                     file.xOffset = file.xOffset + (((file.w * file.zoom) - ((mouse.x - coord.x) - (file.xOffset - (file.w * file.zoom)))) * (-0.1))
                     file.yOffset = file.yOffset + (((file.h * file.zoom) - ((mouse.y - coord.y) - (file.yOffset - (file.h * file.zoom)))) * (-0.1))
+                    file.zoom = file.zoom / 11 * 10
+                ELSEIF ctrlDown THEN
+                    file.zoom = file.zoom / 11 * 10
                 END IF
-                file.zoom = file.zoom / 11 * 10
+            END IF
+            IF shiftDown THEN
+                file.xOffset = file.xOffset - (file.zoom * file.w * 0.05 * (1 / file.zoom))
+            ELSE
+                IF NOT altDown AND NOT ctrlDown THEN
+                    file.yOffset = file.yOffset - (file.zoom * file.h * 0.05 * (1 / file.zoom))
+                END IF
             END IF
         END IF
     END IF
@@ -164,6 +182,7 @@ SUB saveFileDialog
     PRINT "Saving file..."
     _DISPLAY
     invoke.ignoremouse = 0
+    resetExpansions
 END SUB
 
 SUB openFileDialog
@@ -175,6 +194,7 @@ SUB openFileDialog
     _DISPLAY
     openFile sourcefile$
     invoke.ignoremouse = 0
+    resetExpansions
 END SUB
 
 SUB saveFile (targetFile AS STRING)
@@ -1556,6 +1576,7 @@ SUB resetExpansions
             END IF
         LOOP UNTIL e = UBOUND(elements)
     END IF
+    expanded = 0
 END SUB
 
 '--------------------------------------------------------------------------------------------------------------------------------------'
