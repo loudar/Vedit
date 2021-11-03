@@ -120,8 +120,6 @@ DO
     displayView keyhit
     displayText
 
-    IF roundsSinceEdit < 1000 THEN roundsSinceEdit = roundsSinceEdit + 1
-
     'DEBUG
     'lastFrameTime = TIMER - frameStart
     'displayFrameTimes lastFrameTime
@@ -182,7 +180,6 @@ SUB saveFileDialog
     PRINT "Saving file..."
     _DISPLAY
     invoke.ignoremouse = 0
-    resetExpansions
 END SUB
 
 SUB openFileDialog
@@ -194,7 +191,6 @@ SUB openFileDialog
     _DISPLAY
     openFile sourcefile$
     invoke.ignoremouse = 0
-    resetExpansions
 END SUB
 
 SUB saveFile (targetFile AS STRING)
@@ -695,6 +691,7 @@ SUB makeExportIMG (w AS _INTEGER64, h AS _INTEGER64, IMG AS LONG)
 END SUB
 
 SUB displayLayers (coord AS rectangle)
+    IF roundsSinceEdit < 1000 THEN roundsSinceEdit = roundsSinceEdit + 1
     REDIM canvasImg AS LONG
     canvasImg = _NEWIMAGE(coord.w, coord.h, 32)
     _DEST canvasImg

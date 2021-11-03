@@ -261,6 +261,9 @@ SUB expandElement (this AS element, elementindex AS INTEGER, currentfont AS LONG
         itemtext$ = _TRIM$(options(index))
         IF mouseInBounds(itemcoord) THEN
             IF mouse.left THEN
+                this.expand = 0
+                expanded = 0
+                activeelement = 0
                 SELECT CASE MID$(itemtext$, 1, INSTR(itemtext$, ".") - 1)
                     CASE "action"
                         doThis "action="+MID$(itemtext$, INSTR(itemtext$, ".") + 1, LEN(itemtext$)), 0
