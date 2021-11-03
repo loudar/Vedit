@@ -13,4 +13,4 @@ Feel free to fork this repository and change/add stuff! If we like what you adde
 Make sure to move the code/ folder into the same folder as your IDE, as QB64 won't recognize the relative path.
 
 # Screenshots
-![Screenshot 2021-08-02 134928](https://user-images.githubusercontent.com/35202909/127857585-f0cb38aa-ff08-47a1-a482-9d4e1446ad94.png)
+![Screenshot 2021-11-03 212957](https://user-images.githubusercontent.com/35202909/140187978-719d5b79-8d29-4863-9a01-3def2afd0f97.png)
